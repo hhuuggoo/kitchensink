@@ -65,7 +65,8 @@ We will implement a long running queue in redis/shelve.  The RPC server will rou
   - If the user wants to use a custom environment, We spin up workers for them which expire when their session closes
 - data locality - when a job is queued, the size of the data it needs on each host is aggregated.  If the server side data is small,
   then we don't care, and we route the job to the central queue.  Otherwise the job has a list of hosts that can handle it
-  
+- There are named collections of hosts - these can be used to push out data.  there is also a job queue per named-set
+
 ### Data Model
 #### Server Side Data
   - The idea would be that server side data would be replaced with blaze array server and catalogue in the future, with the exception of non-array data which would still be stored in the KitchenSink storage mechanism
@@ -86,4 +87,7 @@ We will implement a long running queue in redis/shelve.  The RPC server will rou
 #### Task Queue
   - Each job is stored as a hash set, with keyed off of job id
   - Jobs are added to queues which are redis lists, and can be popped off
-  - Jobs have subtasks.
+  - For data locality, we compute which hosts can process the job based on the amount of data the job needs which resides on that host.
+  - We then resolve that into N queues, attempting to use named queues to minimize the number of queues
+  - The job is added to each queue (so yes, the job may be enqueued twice)
+  - when jobs are popped, we do a final check using redis setnx to ensure that no other worker has claimed the job
