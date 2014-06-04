@@ -63,7 +63,9 @@ We will implement a long running queue in redis/shelve.  The RPC server will rou
   - workers will prioritize tasks based on data locality
   - workers can either complete the request in process, or fork a process
   - If the user wants to use a custom environment, We spin up workers for them which expire when their session closes
-
+- data locality - when a job is queued, the size of the data it needs on each host is aggregated.  If the server side data is small,
+  then we don't care, and we route the job to the central queue.  Otherwise the job has a list of hosts that can handle it
+  
 ### Data Model
 #### Server Side Data
   - The idea would be that server side data would be replaced with blaze array server and catalogue in the future, with the exception of non-array data which would still be stored in the KitchenSink storage mechanism
