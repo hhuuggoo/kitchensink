@@ -54,3 +54,34 @@ We can return a pointer to the object as such:
 
 We will implement a long running queue in redis/shelve.  The RPC server will route standard out and results back to the client (or pointers to the results)
 
+### Process Model
+3 Components
+- DataServer runs on each node, serves up server side data.  Each host should have one
+- RPC Server pushes tasks onto redis, gateway for clients to communicate.  We could possibly combine this with the data server, but I'm not sure if that's a bad idea or not
+- workers - workers pull tasks off of redis and execute them
+  - workers can be spun up for different queues
+  - workers will prioritize tasks based on data locality
+  - workers can either complete the request in process, or fork a process
+  - If the user wants to use a custom environment, We spin up workers for them which expire when their session closes
+
+### Data Model
+#### Server Side Data
+  - The idea would be that server side data would be replaced with blaze array server and catalogue in the future, with the exception of non-array data which would still be stored in the KitchenSink storage mechanism
+  - Data is stored on disk in some directory, organized by user, with UUID filenames
+  - The metadata for the data includes key, tags, type, connection information(hosts, ports, protocols), and size.
+    - key is the primary key of the piece of data.  Will be a UUID
+    - data is immutable with the exception of deletion
+    - you don't get consistency guarantees with deletion
+    - Serverside Data is stored in the following mechanism
+      - There is a central redis string for each piece of data that keeps insertion date, and size of the data
+      - There is a redis list for each piece of data that has all the connection information for where the data can be retrieved
+      - size is denormalized into the connection information
+      - There is a redis set for each dataset that contains all the tags
+      - There is also a redis set for each tag that contains all the datasets
+    -  Accessing a piece of data by key is a matter of retrieving connection information from the redis list, and hitting that host
+    -  Searching data in redis involves possibly iterating through keys of the tag database, depending on the kind of search you
+       want to do
+#### Task Queue
+  - Each job is stored as a hash set, with keyed off of job id
+  - Jobs are added to queues which are redis lists, and can be popped off
+  - Jobs have subtasks.
