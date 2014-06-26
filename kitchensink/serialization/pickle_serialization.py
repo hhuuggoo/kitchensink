@@ -1,7 +1,7 @@
 import cPickle as pickle
 
-def serialize(obj):
+def deserialize(obj):
     return pickle.loads(obj)
 
-def deserialize(obj):
+def serialize(obj):
     return pickle.dumps(obj)
