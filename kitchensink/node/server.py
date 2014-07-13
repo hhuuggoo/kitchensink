@@ -11,4 +11,5 @@ def make_app(redis_connection_obj, port):
 
 def run():
     app.debug = True
+    print ('**PORT', app.port)
     app.run(host='0.0.0.0', port=app.port)
