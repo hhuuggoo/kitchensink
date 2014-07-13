@@ -54,11 +54,12 @@ class RPC(object):
             if not self.auth(auth):
                 raise UnauthorizedException
         if async:
-            return self.call_async(func, args, kwargs,
-                                   fmt, queue_name)
+            metadata, result = self.call_async(func, args, kwargs,
+                                               fmt, queue_name)
         else:
-            return self.call_instant(func, args, kwargs,
-                                     fmt)
+            metadata, result =  self.call_instant(func, args, kwargs,
+                                                  fmt)
+        return pack_msg(metadata, result)
 
     def call_instant(self, func, args, kwargs, fmt):
         try:
@@ -66,14 +67,14 @@ class RPC(object):
                 func = self.resolve_function(func)
             result = wrap(func)(*args, **kwargs)
             metadata = {'fmt' : fmt, 'status' : Status.FINISHED}
-            return pack_msg(metadata, result)
+            return metadata, result
         except Exception as e:
             exc_info = traceback.format_exc()
             """
             how to do return errors?
             """
             metadata = {'fmt' : fmt, 'status' : Status.FAILED, 'error' : exc_info}
-            return pack_msg(metadata, None)
+            return metadata, None
 
     def resolve_function(self, func_string):
         """turn a func_string into a function
@@ -96,7 +97,7 @@ class RPC(object):
         func = wrap(func)
         job_id = self.task_queue.enqueue(queue_name, func, args, kwargs,
                                          metadata={'fmt' : fmt})
-        return job_id
+        return {'fmt' : fmt, 'job_id' : job_id}, None
 
     def status(self, job_id, timeout=None):
         return self.task_queue.status(job_id, timeout=timeout)

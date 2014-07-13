@@ -3,7 +3,7 @@ import requests
 import dill
 from rq.job import Status
 
-from ..settings import serializer, deserializer
+from ..serialization import serializer, deserializer, pack_msg, unpack_msg
 from ..utils import make_query_url
 
 
@@ -19,33 +19,26 @@ class Client(object):
     def call(self, func, *args, **kwargs):
         #TODO: check for serialized function
         #TODO: handle instance methods
-        if isinstance(func, six.string_types):
-            func_string = func
-        else:
-            func_string = func.__module__ + "." + func.__name__
-        args_string = serializer(self.fmt)(args)
-        kwargs_string = serializer(self.fmt)(kwargs)
+        if not isinstance(func, six.string_types):
+            func = func.__module__ + "." + func.__name__
         queue_name = self.queue_name
         fmt = self.fmt
-        #auth not supported yet
         auth_string = ""
         async = kwargs.pop('_async', True)
-        serialized_function = False
-        data = dict(func_string=func_string,
-                    args_string=args_string,
-                    kwargs_sring=kwargs_string,
-                    fmt=fmt,
-                    queue_name=queue_name,
-                    auth_string=auth_string,
-                    async=async,
-                    serialized_function=serialized_function)
+        metadata = dict(fmt=fmt,
+                        queue_name=queue_name,
+                        auth_string=auth_string,
+                        async=async)
+        data = dict(func=func,
+                    args=args,
+                    kwargs_sring=kwargs)
 
         url = self.url + "rpc/call/%s/" % self.rpc_name
-        print url
-        url = make_query_url(url, data)
-        result = requests.get(url)
-        result = result.json()
-        if result['status'] == Status.FAILED:
-            raise Exception, result['result']
+        msg = pack_msg(metadata, data)
+        result = requests.post(url, data=msg,
+                               headers={'content-type' : 'application/octet-stream'})
+        metadata, data = unpack_msg(result.content)
+        if metadata['status'] == Status.FAILED:
+            raise Exception, metadata['error']
         else:
-            return deserializer(self.fmt)(result['result'])
+            return data

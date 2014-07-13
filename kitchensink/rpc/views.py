@@ -18,26 +18,14 @@ def make_json(jsonstring, status_code=200, headers={}):
                                       headers=headers,
                                       mimetype='application/json')
 
-@rpcblueprint.route("/call/<rpcname>/")
+@rpcblueprint.route("/call/<rpcname>/", methods=['POST'])
 def call(rpcname):
-    func_string = request.values['func_string']
-    args_string = request.values.get('args_string')
-    kwargs_string = request.values.get('kwargs_string')
-    fmt = request.values.get('fmt')
-    queue_name = request.values.get('queue_name', 'default')
-    auth_string = request.values.get('auth_string')
-    async = request.values.get('async').lower() == 'true'
-    serialized_function = request.values.get('serialized_function').lower() == 'true'
+    msg = request.data
     rpc = rpcblueprint.rpcs[rpcname]
-    result = rpc.call(func_string, args_string, kwargs_string, fmt,
-                      serialized_function=serialized_function,
-                      auth_string=auth_string, async=async,
-                      queue_name=queue_name)
-    if async:
-        return result
-    else:
-        status, metadata, result = result
-        return jsonify(status=status, result=result, metadata=metadata)
+    result = rpc.call(msg)
+    return current_app.response_class(response=result,
+                                      status=200,
+                                      mimetype='application/octet-sream')
 
 @rpcblueprint.route("/status/<job_id>/")
 def status(job_id):
