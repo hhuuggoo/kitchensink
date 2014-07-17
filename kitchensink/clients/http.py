@@ -5,8 +5,8 @@ import requests
 import dill
 from rq.job import Status
 
-from ..serialization import (serializer, deserializer, pack_msg, unpack_msg,
-                             pack_rpc_call, unpack_rpc_call)
+from ..serialization import (serializer, deserializer, unpack_result,
+                             pack_rpc_call)
 from ..utils import make_query_url
 
 
@@ -36,7 +36,7 @@ class Client(object):
         async = kwargs.pop('_async', True)
         metadata = dict(
             func_string=func_string,
-            fmt=fmt,
+            result_fmt=fmt,
             queue_name=queue_name,
             auth_string=auth_string,
             async=async)
@@ -46,26 +46,27 @@ class Client(object):
                     kwargs=kwargs)
 
         url = self.url + "rpc/call/%s/" % self.rpc_name
-        msg = pack_rpc_call(metadata, data)
+        msg = pack_rpc_call(metadata, data, fmt=self.fmt)
         result = requests.post(url, data=msg,
                                headers={'content-type' : 'application/octet-stream'})
-        metadata, data = unpack_msg(result.content)
+        msg_format, [metadata, data] = unpack_result(result.content)
         if metadata['status'] == Status.FAILED:
             raise Exception, metadata['error']
         elif metadata['status'] == Status.FINISHED:
             return data
         elif async:
             return self.async_result(metadata['job_id'])
+
     def async_result(self, jobid, interval=0.1, retries=10):
         for c in range(retries):
             url = self.url + "rpc/status/%s" % jobid
             time.sleep(interval)
             result = requests.get(url,
                                   headers={'content-type' : 'application/octet-stream'})
-            metadata, data = unpack_msg(result.content)
+            msg_format, [metadata, data] = unpack_result(result.content)
             if metadata['status'] == Status.FAILED:
                 raise Exception(data)
             elif metadata['status'] == Status.FINISHED:
                 return data
             else:
-                print(metadata['status'])
+                print(data['status'])

@@ -7,14 +7,11 @@ from six import string_types
 from ..serialization import (json_serialization,
                              dill_serialization,
                              pickle_serialization,
-                             pack_msg,
-                             unpack_msg,
-                             unpack_metadata,
-                             unpack_data,
-                             unpack_rpc_metadata,
-                             unpack_rpc_call,
-                             append_rpc_data,
                              pack_result,
+                             unpack_rpc_metadata,
+                             unpack_msg_format,
+                             unpack_rpc_call,
+                             append_rpc_data
 )
 
 from ..errors import UnauthorizedAccess, UnknownFunction, WrappedError
@@ -56,7 +53,7 @@ class RPC(object):
         metadata = unpack_rpc_metadata(msg)
 
         #metadata
-        fmt = metadata.get('fmt', 'dill')
+        result_fmt = metadata.get('result_fmt', 'dill')
         queue_name = metadata.get('queue_name', 'default')
         async = metadata.get('async', True)
         auth = metadata.get('auth', '')
@@ -67,19 +64,19 @@ class RPC(object):
             metadata, result = self.call_async(msg, metadata, queue_name)
         else:
             metadata, result =  self.call_instant(msg, metadata)
-        return pack_result(metadata, result)
+        return pack_result(metadata, result, fmt=result_fmt)
 
     def call_instant(self, msg, metadata):
         func_string = metadata.get('func_string')
-        fmt = metadata['fmt']
+        fmt = metadata['result_fmt']
         if func_string is not None:
             func = self.resolve_function(func_string)
         else:
             func = None
-        msg = append_rpc_data(msg, {'func' : func})
+        msg = append_rpc_data(msg, {'func' : func}, fmt='dill')
         try:
             result = execute_msg(msg)
-            metadata = {'fmt' : fmt, 'status' : Status.FINISHED}
+            metadata = {'result_fmt' : fmt, 'status' : Status.FINISHED}
             return metadata, result
 
         except Exception as e:
@@ -87,7 +84,7 @@ class RPC(object):
             """
             how to do return errors?
             """
-            metadata = {'fmt' : fmt, 'status' : Status.FAILED, 'error' : exc_info}
+            metadata = {'result_fmt' : fmt, 'status' : Status.FAILED, 'error' : exc_info}
             return metadata, None
 
     def call_async(self, msg, metadata, queue_name):
@@ -95,20 +92,20 @@ class RPC(object):
         ## directly to the backend task queue, but for now
         ## we parse them into python objects, and then
         ## re-serialize them via python-rq(which uses pickle)
-        fmt = metadata['fmt']
+        fmt = metadata['result_fmt']
         func_string = metadata.get('func_string')
         if func_string is not None:
             func = self.resolve_function(func_string)
         else:
             func = None
-        msg = append_rpc_data(msg, {'func' : func})
+        msg = append_rpc_data(msg, {'func' : func}, fmt='dill')
         job_id, status = self.task_queue.enqueue(
             queue_name,
             execute_msg,
             [msg],
             {}, metadata=metadata
         )
-        metadata = {'fmt' : fmt,
+        metadata = {'result_fmt' : fmt,
                     'job_id' : job_id,
                     'status' : status
         }
@@ -145,7 +142,7 @@ class RPC(object):
 #     return wrapper
 
 def execute_msg(msg):
-    metadata, data = unpack_rpc_call(msg)
+    msg_format, metadata, data = unpack_rpc_call(msg)
     func = data['func']
     args = data.get('args', [])
     kwargs = data.get('kwargs', {})

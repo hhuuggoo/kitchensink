@@ -36,54 +36,58 @@ func_string, args_string, kwargs_string
 separator = '""""'
 """
 format:
-   metadata : json object, serialized as json
-   the metadata object must contain a 'fmt' k/v pair which
-   indicates the format of the payload.
-   the metadata also must contain a 'len' k/v/ pair
-   which contains the length of the resulting binary messages.
-   if there is only one binary message, then 'len' can be omitted
-
-   a separator follows
-
+   msg_format : json object, serialized as json
+       contains fmt : a list of formats for the remaining data objects
+       and len : an array of the lengths of the data in the remaining data objects
    then the data block begins, which is N data strings
-   encoded by 'fmt'
+   encoded by the 'fmt'
 """
-def pack_msg(metadata, *data):
+def pack_msg(*data, **kwargs):
+    fmts = kwargs.pop('fmt')
     data_strings = []
-    for d in data:
-        data_string = serializer(metadata['fmt'])(d)
+    lengths = []
+    for f, d in zip(fmts, data):
+        data_string = serializer(f)(d)
         data_strings.append(data_string)
-    metadata['len'] = [len(x) for x in data_strings]
-    metadata_string = serializer('json')(metadata)
-    return metadata_string + separator + "".join(data_string)
+        lengths.append(len(data_string))
+    msg_format = {'len' : lengths, 'fmt' : fmts}
+    msg_format_string = serializer('json')(msg_format)
+    return msg_format_string + separator + "".join(data_strings)
 
 def unpack_msg(input_string):
-    metadata = unpack_metadata(input_string)
-    data = unpack_data(metadata, input_string)
-    return metadata, data
+    msg_format = unpack_msg_format(input_string)
+    data = unpack_msg_data(msg_format, input_string)
+    return msg_format, data
 
-def unpack_metadata(input_string):
-    metadata_string, data_string = input_string.split(separator)
-    metadata = deserializer('json')(metadata_string)
-    return metadata
+def unpack_msg_format(input_string):
+    return deserializer('json')(input_string.split(separator, 1)[0])
 
-def unpack_data(metadata, input_string):
-    metadata_string, data_string = input_string.split(separator)
-    func = deserializer(metadata['fmt'])
-    data = []
-    lengths = metadata.get('len', [len(data_string)])
-    idx = 0
-    for l in lengths:
-        obj = func(data_string[idx:idx + l])
-        data.append(obj)
-        idx += l
-    return data
+def unpack_msg_data(msg_format, input_string, index=None, override_fmt=None):
+    """won't work if you specify incorrect override_fmt, but
+    override_fmt is used to make sure we don't use something like dill
+    when we don't want it (Security)
+    """
+    _, data_string = input_string.split(separator)
+    def unpack_data(index):
+        if override_fmt is None:
+            fmt = msg_format['fmt'][index]
+        else:
+            fmt = override_fmt
+        length = msg_format['len'][index]
+        idx = sum(msg_format['len'][:index])
+        func = deserializer(fmt)
+        data = func(data_string[idx:idx+length])
+        return data
+    if index is not None:
+        return unpack_data(index)
+    else:
+        return [unpack_data(x) for x in range(len(msg_format['fmt']))]
 
 """
 RPC Call format:
-
+msg_format: similar to msg above
 metadata: contains func_string (optional)
-fmt (mandatory)
+result_fmt (mandatory)
 queue_name (mandatory)
 auth_string (optional)
 async (mandatory)
@@ -103,54 +107,36 @@ updated, so that the last dicts values takes precedence
 """
 
 def pack_rpc_call(metadata, *data, **kwargs):
-    """serialize is the only kwarg here.
-    this tells us whether ot not we should serialize the data blocks
-    (this way, if the data block is already serialized, we don't
-    need to do it).  defaults to True
-    """
-    serialize = kwargs.pop('serialize', True)
-    func = serializer(metadata['fmt'])
-    if serialize:
-        data_strings = [func(x) for x in data]
-    else:
-        data_strings = data
-    metadata['len'] = [len(x) for x in data_strings]
-    metadata_string = serializer('json')(metadata)
-    return metadata_string + separator + "".join(data_strings)
+    fmt = kwargs.pop('fmt', 'dill')
+    #always use json for rpc metadata
+    fmts = ['json'] + [fmt for d in data]
+    return pack_msg(metadata, *data, fmt=fmts)
 
-def append_rpc_data(input_string, data, serialize=True):
-    metadata_string, data_string = input_string.split(separator)
-    metadata = deserializer('json')(metadata_string)
-    if serialize:
-        fmt = metadata['fmt']
-        func = serializer(metadata['fmt'])
-        data = func(data)
-    metadata.setdefault('len', len(data_string))
-    lengths = metadata['len']
-    lengths.append(len(data))
-    metadata['len'] = lengths
-    metadata_string = serializer('json')(metadata)
-    return metadata_string + separator + data_string + data
-
-def unpack_rpc_metadata(input_string):
-    return unpack_metadata(input_string)
-
-def unpack_rpc_data(metadata, input_string):
-    datas = unpack_data(metadata, input_string)
-    data = utils.update_dictionaries(*datas)
-    return data
+def append_rpc_data(input_string, data, fmt=None):
+    msg_format, data_string = input_string.split(separator)
+    msg_format = deserializer('json')(msg_format)
+    new_string = serializer(fmt)(data)
+    msg_format['len'].append(len(new_string))
+    msg_format['fmt'].append(fmt)
+    return serializer('json')(msg_format) + separator + data_string + new_string
 
 def unpack_rpc_call(input_string):
-    metadata = unpack_rpc_metadata(input_string)
-    data = unpack_rpc_data(metadata, input_string)
-    return metadata, data
+    msg_format, data = unpack_msg(input_string)
+    metadata = data[0]
+    data = utils.update_dictionaries(*data[1:])
+    return msg_format, metadata, data
+
+def unpack_rpc_metadata(input_string):
+    msg_format = unpack_msg_format(input_string)
+    return unpack_msg_data(msg_format, input_string, index=0, override_fmt='json')
+
 
 """
 RPC result format (same as our message format, except only 1 data payload)
 """
 
-def pack_result(metadata, data):
-    return pack_msg(metadata, data)
+def pack_result(metadata, data, fmt=None):
+    return pack_msg(metadata, data, fmt=['json', fmt])
 
 def unpack_result(input_string):
     return unpack_msg(input_string)
