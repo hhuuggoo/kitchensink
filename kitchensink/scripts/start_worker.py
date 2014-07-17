@@ -1,11 +1,11 @@
 import logging
 from argparse import ArgumentParser
-from rq import Queue, Connection, Worker
+from rq import Connection, Worker
 import redis
 
 from kitchensink import settings
 from kitchensink.utils import parse_redis_connection
-
+from kitchensink.taskqueue.objs import KitchenSinkRedisQueue
 comments = \
 """
 kitchen sink RPC Server
@@ -41,10 +41,10 @@ def run(redis_connection, node_url, queue):
         queue = ['default']
     with Connection(r):
         queues = []
-        node_queue = Queue(node_url)
+        node_queue = KitchenSinkRedisQueue(node_url)
         queues.append(node_queue)
         for q in queue:
-            queues.append(Queue(q))
+            queues.append(KitchenSinkRedisQueue(q))
             w = Worker(queues)
     w.work(burst=False)
 

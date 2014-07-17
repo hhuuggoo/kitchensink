@@ -21,3 +21,9 @@ def parse_redis_connection(url):
 def make_query_url(url, data):
     qs = urlencode(data)
     return url + "?" + qs
+
+def update_dictionaries(*dictionaries):
+    result = {}
+    for d in dictionaries:
+        result.update(d)
+    return result

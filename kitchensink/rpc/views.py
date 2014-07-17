@@ -5,7 +5,7 @@ from flask import request, current_app, jsonify
 from rq.job import Status
 
 from .app import rpcblueprint
-
+from ..serialization import pack_msg
 logger = logging.getLogger(__name__)
 
 # we assume that you set rpc.rpc to some instance of an RPC object
@@ -32,8 +32,11 @@ def status(job_id):
     timeout = request.values.get('timeout')
     if timeout:
         timeout = float(timeout)
-    status, metadata, value = rpc.rpc.status(job_id, timeout=timeout)
-    return jsonify(status=stauts, result=result)
+    metadata, value = rpcblueprint.task_queue.status(job_id, timeout=timeout)
+    result = pack_msg(metadata, value)
+    return current_app.response_class(response=result,
+                                      status=200,
+                                      mimetype='application/octet-sream')
 
 @rpcblueprint.route("/helloworld/")
 def hello():
