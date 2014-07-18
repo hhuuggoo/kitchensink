@@ -1,6 +1,6 @@
 import copy
 
-from rq.job import Job, Status
+from rq.job import Status
 from rq import Queue
 from rq import Connection
 
@@ -31,11 +31,21 @@ class TaskQueue(object):
         """timeout is None - default to non-blocking
         """
         with Connection(self.conn):
-            job = Job(job_id)
+            job = KitchenSinkJob(job_id)
         job.refresh()
         status = job.get_status()
+        # if the job is finished, grab all messages and get out!
+        if status == Status.FINISHED:
+            messages = job.pull_intermediate_results(timeout=0)
+        else:
+            messages = job.pull_intermediate_results()
+            #then refresh the job again
+            job.refresh()
+            status = job.get_status()
         metadata = copy.copy(job.meta)
         metadata['status'] = status
+        metadata['msgs'] = messages
+
         if status == Status.FINISHED:
             return metadata, job.return_value
         elif status == Status.FAILED:

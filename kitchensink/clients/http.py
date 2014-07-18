@@ -64,9 +64,14 @@ class Client(object):
             result = requests.get(url,
                                   headers={'content-type' : 'application/octet-stream'})
             msg_format, [metadata, data] = unpack_result(result.content)
+            for msg in metadata.get('msgs', []):
+                if msg['type'] == 'status':
+                    print (msg)
+                else:
+                    print (msg['msg'])
             if metadata['status'] == Status.FAILED:
                 raise Exception(data)
             elif metadata['status'] == Status.FINISHED:
                 return data
-            else:
-                print(data['status'])
+            elif metadata['status'] == Status.STARTED:
+                pass

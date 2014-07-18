@@ -1,4 +1,7 @@
 import traceback
+import sys
+import cStringIO
+import threading
 
 from rq.job import Status
 from rq import Queue, Connection
@@ -14,8 +17,10 @@ from ..serialization import (json_serialization,
                              append_rpc_data
 )
 
+from ..taskqueue.objs import get_current_job
 from ..errors import UnauthorizedAccess, UnknownFunction, WrappedError
 from ..settings import serializer, deserializer
+from .. import settings
 """
 Aspects:
 - async or not
@@ -140,14 +145,51 @@ class RPC(object):
 #     wrapper.__module__ = func.__module__
 #     wrapper.__name__ = func.__name__
 #     return wrapper
+import tempfile
+class OutputThread(threading.Thread):
+    interval = 1
+    def run(self):
+        with open(self.filename, "r") as toread:
+            buf = ""
+            while not self.kill:
+                buf += toread.read()
+                msgs = buf.split("\n")[:-1]
+                for msg in msgs:
+                    self.job.push_stdout(msg)
+                buf = buf.rsplit("\n", 1)[-1]
 
-def execute_msg(msg):
+def _execute_msg(msg):
     msg_format, metadata, data = unpack_rpc_call(msg)
     func = data['func']
     args = data.get('args', [])
     kwargs = data.get('kwargs', {})
     result = func(*args, **kwargs)
     return result
+
+def execute_msg(msg):
+    with Connection(settings.redis_conn):
+        job = get_current_job()
+    if not job or not job.meta.get('intermediate_results', True):
+        return _execute_msg(msg)
+    output = tempfile.NamedTemporaryFile(prefix="ks-").name
+    output_thread = OutputThread()
+    output_thread.filename = output
+    output_thread.job = job
+    output_thread.kill = False
+    old_stdout = sys.stdout
+    old_stderr = sys.stderr
+    with open(output, "w+", 0) as towrite:
+        sys.stdout = towrite
+        sys.stderr = towrite
+        try:
+            output_thread.start()
+            result = _execute_msg(msg)
+            return result
+        finally:
+            sys.stdout = old_stdout
+            sys.stderr = old_stderr
+            output_thread.kill = True
+            output_thread.join()
 
 ## fmt is the format that the consumer wants, and is sending args in
 ## for now we use our own internal serialization (probably pickle or dill)
