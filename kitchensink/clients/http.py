@@ -54,7 +54,7 @@ class Client(object):
         elif metadata['status'] == Status.FINISHED:
             return data
         elif async:
-            return self.async_result(metadata['job_id'])
+            return AsyncResult(self, metadata['job_id'])
 
     def async_result(self, jobid, interval=0.1, retries=10):
         for c in range(retries):
@@ -74,3 +74,11 @@ class Client(object):
                 return data
             elif metadata['status'] == Status.STARTED:
                 pass
+
+class AsyncResult(object):
+    def __init__(self, rpc, jobid):
+        self.rpc = rpc
+        self.jobid = jobid
+
+    def result(self):
+        return self.rpc.async_result(self.jobid)

@@ -9,13 +9,18 @@ def test_func2(x, y):
     return np.linspace(10, 200)
 
 def test_func(x, y):
-    time.sleep(1)
+    #time.sleep(1)
     print 1
     for c in range(100):
         print c
+    #time.sleep(1)
+    print 'foo'
     return test_func2(x, y)
 
-print c.call(test_func, a, a, _async=True)
+objs = [c.call(test_func, a, a, _async=True) for cc in range(10)]
+print objs
+for obj in objs:
+    print obj.result()
 
 # print c.call('dummy_mult', a, a, _async=False)
 # print c.call('dummy_add', a, a, _async=False)

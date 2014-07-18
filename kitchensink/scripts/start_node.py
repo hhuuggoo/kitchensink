@@ -26,6 +26,7 @@ def parser():
 
     p.add_argument('--node-port',
                    help="port for the main worker node of the RPC Server",
+                   type=int,
                    default=6324)
 
     p.add_argument('--num-workers',

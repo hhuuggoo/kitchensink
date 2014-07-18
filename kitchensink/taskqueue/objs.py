@@ -3,6 +3,7 @@
 from rq import Queue, Worker
 from rq.job import Job, UNEVALUATED, Status
 import rq.job
+from rq.worker import StopRequested
 from rq.logutils import setup_loghandlers
 import dill
 
@@ -28,7 +29,6 @@ class KitchenSinkJob(Job):
         self.push_intermediate_results({'type' : 'status',
                                         'status' : status})
     def push_stdout(self, output):
-        logger.info("pushing stdout %s", output)
         self.push_intermediate_results({'type' : 'stdout',
                                         'msg' : output})
     def _grab_all_messages(self):
@@ -49,7 +49,6 @@ class KitchenSinkJob(Job):
         else:
             msg = None
         if msg:
-            logger.info("msg:%s:" % str(msg))
             msg = deserializer('json')(msg)
             messages = self._grab_all_messages()
             return [msg] + messages
