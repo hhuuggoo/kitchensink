@@ -1,4 +1,6 @@
-from . import json_serialization, dill_serialization, pickle_serialization
+from . import (json_serialization, dill_serialization,
+               pickle_serialization, cloudpickle)
+
 from .. import utils
 
 formats = {}
@@ -15,6 +17,10 @@ def register_default_serialization():
     register_serialization('pickle',
                            pickle_serialization.serialize,
                            pickle_serialization.deserialize)
+    register_serialization('cloudpickle',
+                           cloudpickle.dumps,
+                           pickle_serialization.deserialize)
+
 register_default_serialization()
 
 def serializer(fmt):

@@ -4,6 +4,7 @@ from rq import Queue, Connection
 from .app import app, rpcblueprint
 from . import views
 from ..taskqueue import TaskQueue
+from .. import settings
 
 def get_queue(name):
     if not name in rpcblueprint.queues:
@@ -19,6 +20,7 @@ def make_app(redis_connection_obj, port):
                                        port=redis_connection_obj['port'],
                                        db=redis_connection_obj['db'])
     rpcblueprint.task_queue = TaskQueue(rpcblueprint.r)
+    settings.redis_conn = rpcblueprint.r
     return app
 
 def register_rpc(rpc, name='default'):

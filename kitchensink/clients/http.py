@@ -13,7 +13,7 @@ from ..utils import make_query_url
 class Client(object):
     def __init__(self, url, rpc_name='default',
                  queue_name="default",
-                 fmt='dill'):
+                 fmt='cloudpickle'):
         self.url = url
         self.rpc_name = rpc_name
         self.fmt = fmt
@@ -23,11 +23,10 @@ class Client(object):
         #TODO: check for serialized function
         #TODO: handle instance methods
         func_string = None
-        if not isinstance(func, six.string_types):
-            func_string = func.__module__ + "." + func.__name__
-        else:
+        if isinstance(func, six.string_types):
             func_string = func
-        func = None
+        else:
+            func = func
         #pass func in to data later, when we support that kind of stuff
 
         queue_name = self.queue_name

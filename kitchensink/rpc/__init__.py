@@ -58,7 +58,7 @@ class RPC(object):
         metadata = unpack_rpc_metadata(msg)
 
         #metadata
-        result_fmt = metadata.get('result_fmt', 'dill')
+        result_fmt = metadata.get('result_fmt', 'cloudpickle')
         queue_name = metadata.get('queue_name', 'default')
         async = metadata.get('async', True)
         auth = metadata.get('auth', '')
@@ -76,9 +76,7 @@ class RPC(object):
         fmt = metadata['result_fmt']
         if func_string is not None:
             func = self.resolve_function(func_string)
-        else:
-            func = None
-        msg = append_rpc_data(msg, {'func' : func}, fmt='dill')
+            msg = append_rpc_data(msg, {'func' : func}, fmt='cloudpickle')
         try:
             result = execute_msg(msg)
             metadata = {'result_fmt' : fmt, 'status' : Status.FINISHED}
@@ -101,9 +99,7 @@ class RPC(object):
         func_string = metadata.get('func_string')
         if func_string is not None:
             func = self.resolve_function(func_string)
-        else:
-            func = None
-        msg = append_rpc_data(msg, {'func' : func}, fmt='dill')
+            msg = append_rpc_data(msg, {'func' : func}, fmt='cloudpickle')
         job_id, status = self.task_queue.enqueue(
             queue_name,
             execute_msg,
@@ -150,13 +146,17 @@ class OutputThread(threading.Thread):
     interval = 1
     def run(self):
         with open(self.filename, "r") as toread:
-            buf = ""
+            self.buf = ""
             while not self.kill:
-                buf += toread.read()
-                msgs = buf.split("\n")[:-1]
-                for msg in msgs:
-                    self.job.push_stdout(msg)
-                buf = buf.rsplit("\n", 1)[-1]
+                self.output(toread)
+            self.output(toread)
+    def output(self, toread):
+        self.buf += toread.read()
+        msgs = self.buf.split("\n")[:-1]
+        for msg in msgs:
+            self.job.push_stdout(msg)
+        self.buf = self.buf.rsplit("\n", 1)[-1]
+
 
 def _execute_msg(msg):
     msg_format, metadata, data = unpack_rpc_call(msg)

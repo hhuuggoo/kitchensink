@@ -28,6 +28,7 @@ class KitchenSinkJob(Job):
         self.push_intermediate_results({'type' : 'status',
                                         'status' : status})
     def push_stdout(self, output):
+        logger.info("pushing stdout %s", output)
         self.push_intermediate_results({'type' : 'stdout',
                                         'msg' : output})
     def _grab_all_messages(self):
