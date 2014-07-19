@@ -43,12 +43,12 @@ def status(job_id):
 @rpcblueprint.route("/data/<path>/", methods=['GET'])
 def get_data(path):
     #check auth here if we're doing auth
-    local_path = settings.catalog.local_path(path)
+    local_path = settings.catalog.get_file_path(path)
     return send_file(local_path)
 
 @rpcblueprint.route("/data/<path>/", methods=['POST'])
 def put_data(path):
     #check auth here if we're doing auth
     fstorage = request.files['data']
-    storage.catalog.write(fstorage, path, is_new=True)
+    settings.catalog.write(fstorage, path, is_new=True)
     return jsonify(success=True)

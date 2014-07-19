@@ -9,11 +9,6 @@ def test_func2(x, y):
     return np.linspace(10, 200)
 
 def test_func(x, y):
-    #time.sleep(1)
-    print 1
-    for c in range(100):
-        print c
-    #time.sleep(1)
     print 'foo'
     return test_func2(x, y)
 
@@ -22,20 +17,20 @@ print objs
 for obj in objs:
     print obj.result()
 
-# print c.call('dummy_mult', a, a, _async=False)
-# print c.call('dummy_add', a, a, _async=False)
-# try:
-#     len(c.call('dummy_mult', a, "sdf", _async=False))
-# except Exception as e:
-#     print "thrown exception, this is correct"
+print c.call('dummy_mult', a, a, _async=False)
+print c.call('dummy_add', a, a, _async=False)
+try:
+    len(c.call('dummy_mult', a, "sdf", _async=False))
+except Exception as e:
+    print "thrown exception, this is correct"
 
-# a = pd.DataFrame({'a' : [1,2,3,4,5, 6]})
-# print c.call('dummy_add', a, a, _async=True)
-# try:
-#     len(c.call('dummy_add', a, "sdf", _async=True))
-# except Exception as e:
-#     print "thrown exception this is correct"
+a = pd.DataFrame({'a' : [1,2,3,4,5, 6]})
+print c.call('dummy_add', a, a, _async=True)
+try:
+    len(c.call('dummy_add', a, "sdf", _async=True))
+except Exception as e:
+    print "thrown exception this is correct"
 
-# c = Client("http://localhost:6323/", rpc_name='test', fmt='json')
-# print c.call('dummy_add', 2, 1, _async=False)
-# print c.call('dummy_add', 2, 1, _async=True)
+c = Client("http://localhost:6323/", rpc_name='test', fmt='json')
+print c.call('dummy_add', 2, 1, _async=False)
+print c.call('dummy_add', 2, 1, _async=True)

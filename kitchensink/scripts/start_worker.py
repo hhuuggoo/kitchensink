@@ -6,6 +6,7 @@ import redis
 from kitchensink import settings
 from kitchensink.utils import parse_redis_connection
 from kitchensink.taskqueue.objs import KitchenSinkRedisQueue, KitchenSinkWorker
+from kitchensink.data import Catalog
 comments = \
 """
 kitchen sink RPC Server
@@ -26,18 +27,22 @@ def parser():
                    default=False,
                    action='store_true'
     )
+    p.add_argument('--datadir',
+                   help='data directory',
+    )
     return p
 
 def run_args(args):
-    run(args.redis_connection, args.node_url, args.queue)
+    run(args.redis_connection, args.node_url, args.queue, args.datadir)
 
-def run(redis_connection, node_url, queue):
+def run(redis_connection, node_url, queue, datadir):
     settings.node_url = node_url
     redis_connection_obj = parse_redis_connection(redis_connection)
     r = redis.StrictRedis(host=redis_connection_obj['host'],
                           port=redis_connection_obj['port'],
                           db=redis_connection_obj['db'])
-    settings.redis_conn = r
+    settings.setup_server(r, datadir, node_url,
+                          Catalog(r, datadir, node_url))
     if queue is None:
         queue = ['default']
     with Connection(r):

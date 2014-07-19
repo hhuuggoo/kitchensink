@@ -8,10 +8,11 @@ import time
 from simpleservices.redis import start_redis
 from simpleservices.process import register_shutdown, ManagedProcess, close_all
 from werkzeug.serving import run_with_reloader
-
 from kitchensink.utils import parse_redis_connection
-from kitchensink.rpc.server import make_app, run as runserver
-import os
+from kitchensink.rpc.server import make_app, run as runserver, register_rpc
+from kitchensink.data.datarpc import make_rpc
+from kitchensink.data import Catalog
+
 print ('**PID', os.getpid())
 comments = \
 """
@@ -25,18 +26,14 @@ def parser():
     p.add_argument('--redis-connection',
                    help="redis connection information, tcp://localhost:6379?db=9",
                    default="tcp://localhost:6379?db=9")
-    p.add_argument('--node-url', help='url of node', default='http://localhost:6324/')
+    p.add_argument('--node-url', help='url of node', default='http://localhost:6323/')
     p.add_argument('--no-redis',
                    help="do not start redis",
                    default=False,
                    action="store_true")
-    p.add_argument('--head-port',
-                   help="port for the main RPC Server",
-                   type=int,
-                   default=6323)
     p.add_argument('--node-port',
                    help="port for the main worker node of the RPC Server",
-                   default=6324)
+                   default=6323)
     p.add_argument('--num-workers',
                    help="number of workers",
                    type=int,
@@ -49,20 +46,26 @@ def parser():
                    default=False,
                    action='store_true'
     )
+
+    #mandatory
     p.add_argument('--module',
                    help='module with rpc functions',
+    )
+    p.add_argument('--datadir',
+                   help='data directory',
     )
     return p
 
 def run_args(args):
-    run(args.redis_connection, args.node_url, args.head_port,
+    run(args.redis_connection, args.node_url,
         args.node_port,
         args.num_workers, args.no_redis, args.queue,
-        args.module
+        args.module,
+        args.datadir
     )
-print ('foo')
-def run(redis_connection, node_url, head_port, node_port,
-        num_workers, no_redis, queue, module):
+
+def run(redis_connection, node_url, node_port,
+        num_workers, no_redis, queue, module, datadir):
     register_shutdown()
     redis_connection_info = parse_redis_connection(redis_connection)
     if not no_redis:
@@ -78,8 +81,10 @@ def run(redis_connection, node_url, head_port, node_port,
         cmd.extend(['--queue', q])
     for c in range(num_workers):
         ManagedProcess(cmd, 'worker-%s' % c, 'kitchensink.pid')
-    make_app(redis_connection_info, head_port)
+    make_app(redis_connection_info, node_port, node_url, datadir)
     mod = __import__(module)
+    data_rpc = make_rpc()
+    register_rpc(data_rpc, 'data')
     runserver()
     close_all()
 

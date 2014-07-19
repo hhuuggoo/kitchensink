@@ -1,4 +1,5 @@
 class KitchenSinkError(Exception):
+    pass
 
 class UnauthorizedAccess(KitchenSinkError):
     pass
