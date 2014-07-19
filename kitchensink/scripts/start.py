@@ -69,16 +69,15 @@ def run(redis_connection, node_url, head_port, node_port,
         print ("Starting redis on %s" % redis_connection)
         start_redis("kitchensink.pid", redis_connection_info['port'], os.getcwd())
         time.sleep(1)
-    cmd = [sys.executable, '-m', 'kitchensink.scripts.start_node',
-           "--node-url", node_url,
-           "--redis-connection", redis_connection,
-           "--num-workers", str(num_workers)]
-    print (cmd)
+    cmd = [sys.executable, '-m', 'kitchensink.scripts.start_worker',
+           '--node-url', node_url,
+           '--redis-connection', redis_connection]
     if queue is None:
         queue = ['default']
     for q in queue:
         cmd.extend(['--queue', q])
-    node = ManagedProcess(cmd, 'mainnode', 'kitchensink.pid')
+    for c in range(num_workers):
+        ManagedProcess(cmd, 'worker-%s' % c, 'kitchensink.pid')
     make_app(redis_connection_info, head_port)
     mod = __import__(module)
     runserver()

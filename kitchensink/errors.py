@@ -1,8 +1,10 @@
-class UnauthorizedAccess(Exception):
+class KitchenSinkError(Exception):
+
+class UnauthorizedAccess(KitchenSinkError):
     pass
 
-class UnknownFunction(Exception):
+class UnknownFunction(KitchenSinkError):
     pass
 
-class WrappedError(Exception):
+class WrappedError(KitchenSinkError):
     pass

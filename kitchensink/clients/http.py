@@ -75,6 +75,16 @@ class Client(object):
             elif metadata['status'] == Status.STARTED:
                 pass
 
+    def _get_data(self, path):
+        url = self.url + "data/%s" % path
+        result = requests.get(url, stream=True)
+        return result
+
+    def _put_data(self, path, f):
+        url = self.url + "data/%s" % path
+        result = requests.post(url, files={'data' : f})
+        return result
+
 class AsyncResult(object):
     def __init__(self, rpc, jobid):
         self.rpc = rpc

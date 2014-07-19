@@ -1,11 +1,13 @@
 import logging
 import traceback
 
-from flask import request, current_app, jsonify
+from flask import request, current_app, jsonify, send_file
 from rq.job import Status
 
 from .app import rpcblueprint
 from ..serialization import pack_result
+from .. import settings
+
 logger = logging.getLogger(__name__)
 
 # we assume that you set rpc.rpc to some instance of an RPC object
@@ -38,6 +40,15 @@ def status(job_id):
                                       status=200,
                                       mimetype='application/octet-sream')
 
-@rpcblueprint.route("/helloworld/")
-def hello():
-    return "hello"
+@rpcblueprint.route("/data/<path>/", methods=['GET'])
+def get_data(path):
+    #check auth here if we're doing auth
+    local_path = settings.catalog.local_path(path)
+    return send_file(local_path)
+
+@rpcblueprint.route("/data/<path>/", methods=['POST'])
+def put_data(path):
+    #check auth here if we're doing auth
+    fstorage = request.files['data']
+    storage.catalog.write(fstorage, path, is_new=True)
+    return jsonify(success=True)

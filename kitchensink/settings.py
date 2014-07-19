@@ -27,3 +27,10 @@ def deserializer(fmt):
 # the rest as whatever format the user wants to send
 # separator splits it out
 separator = '""""'
+chunk_size = 4096
+
+#toset
+catalog = None
+host_url = None
+redis_conn = None
+rpc_url = None
