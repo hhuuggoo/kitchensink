@@ -36,18 +36,24 @@ host_url = None
 redis_conn = None
 
 rpc_url = None
+data_rpc_url = None
 
 def setup_server(_redis_conn, _datadir, _host_url, _catalog):
     global catalog
     global datadir
     global host_url
     global redis_conn
+    global data_rpc_url
 
     catalog = _catalog
     datadir = _datadir
     host_url = _host_url
+    data_rpc_url = host_url
+    rpc_url = host_url
     redis_conn = _redis_conn
 
 def setup_client(_rpc_url):
     global rpc_url
+    global data_rpc_url
     rpc_url = _rpc_url
+    data_rpc_url = rpc_url

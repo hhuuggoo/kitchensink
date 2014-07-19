@@ -96,7 +96,7 @@ class RemoteData(object):
     def __init__(self, obj=None, local_path=None, data_url=None, rpc_url=None,
                  fmt="cloudpickle"):
         if rpc_url is None:
-            rpc_url = settings.rpc_url
+            rpc_url = settings.data_rpc_url
         self.rpc_url = rpc_url
         self.data_url = data_url
         self.fmt = fmt
@@ -153,7 +153,7 @@ class RemoteData(object):
         return raw
 
     def obj(self):
-        if self._obj:
+        if self._obj is None:
             return self._obj
         else:
             #should be able to pass a file in later
