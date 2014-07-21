@@ -74,7 +74,9 @@ def run(redis_connection, node_url, node_port,
         time.sleep(1)
     cmd = [sys.executable, '-m', 'kitchensink.scripts.start_worker',
            '--node-url', node_url,
-           '--redis-connection', redis_connection]
+           '--redis-connection', redis_connection,
+           '--datadir', datadir,
+    ]
     if queue is None:
         queue = ['default']
     for q in queue:
@@ -82,6 +84,8 @@ def run(redis_connection, node_url, node_port,
     for c in range(num_workers):
         ManagedProcess(cmd, 'worker-%s' % c, 'kitchensink.pid')
     make_app(redis_connection_info, node_port, node_url, datadir)
+    import kitchensink.settings
+    print ('***', id(kitchensink.settings.catalog))
     mod = __import__(module)
     data_rpc = make_rpc()
     register_rpc(data_rpc, 'data')
@@ -101,4 +105,6 @@ def main():
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
+    logging.getLogger("requests.packages.urllib3.connectionpool").setLevel(logging.WARNING)
+    #logging.getLogger('rq.worker').level = logging.WARNING
     main()

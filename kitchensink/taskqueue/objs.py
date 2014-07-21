@@ -67,13 +67,6 @@ class KitchenSinkJob(Job):
         else:
             return self._block_and_grab_all_messages(timeout=timeout)
 
-
-
-
-
-
-
-
 class KitchenSinkRedisQueue(Queue):
     job_class = KitchenSinkJob
 
@@ -89,7 +82,6 @@ class KitchenSinkWorker(Worker):
 
         The return value indicates whether any jobs were processed.
         """
-        setup_loghandlers()
         self._install_signal_handlers()
 
         did_perform_work = False
@@ -100,7 +92,6 @@ class KitchenSinkWorker(Worker):
                 if self.stopped:
                     self.log.info('Stopping on request.')
                     break
-
                 timeout = None if burst else max(1, self.default_worker_ttl - 60)
                 try:
                     result = self.dequeue_job_and_maintain_ttl(timeout)

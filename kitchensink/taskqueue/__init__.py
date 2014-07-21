@@ -21,7 +21,6 @@ class TaskQueue(object):
     def enqueue(self, queue_name, func, args, kwargs, metadata={}):
         queue = self.get_queue(queue_name)
         job = self.get_queue(queue_name).enqueue_call(func, args=args, kwargs=kwargs)
-        print type(job)
         for k,v in metadata.items():
             job.meta[k] = v
         job.save()

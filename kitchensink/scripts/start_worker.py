@@ -66,4 +66,6 @@ def main():
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
+    logging.getLogger("requests.packages.urllib3.connectionpool").setLevel(logging.WARNING)
+    #logging.getLogger('rq.worker').setLevel(logging.WARNING)
     main()

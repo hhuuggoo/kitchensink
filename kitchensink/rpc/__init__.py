@@ -2,6 +2,7 @@ import traceback
 import sys
 import cStringIO
 import threading
+import logging
 
 from rq.job import Status
 from rq import Queue, Connection
@@ -18,9 +19,11 @@ from ..serialization import (json_serialization,
 )
 
 from ..taskqueue.objs import get_current_job
-from ..errors import UnauthorizedAccess, UnknownFunction, WrappedError
+from ..errors import UnauthorizedAccess, UnknownFunction, WrappedError, KitchenSinkError
 from ..settings import serializer, deserializer
 from .. import settings
+
+logger = logging.getLogger(__name__)
 """
 Aspects:
 - async or not
@@ -65,10 +68,17 @@ class RPC(object):
         if auth and self.auth:
             if not self.auth(auth):
                 raise UnauthorizedException
-        if async:
-            metadata, result = self.call_async(msg, metadata, queue_name)
-        else:
-            metadata, result =  self.call_instant(msg, metadata)
+        try:
+            if async:
+                metadata, result = self.call_async(msg, metadata, queue_name)
+            else:
+                metadata, result =  self.call_instant(msg, metadata)
+        except Exception as e:
+            exc_info = traceback.format_exc()
+            metadata = {'result_fmt' : result_fmt,
+                        'status' : Status.FAILED,
+                        'error' : exc_info}
+            result = None
         return pack_result(metadata, result, fmt=result_fmt)
 
     def call_instant(self, msg, metadata):
@@ -77,18 +87,9 @@ class RPC(object):
         if func_string is not None:
             func = self.resolve_function(func_string)
             msg = append_rpc_data(msg, {'func' : func}, fmt='cloudpickle')
-        try:
-            result = execute_msg(msg)
-            metadata = {'result_fmt' : fmt, 'status' : Status.FINISHED}
-            return metadata, result
-
-        except Exception as e:
-            exc_info = traceback.format_exc()
-            """
-            how to do return errors?
-            """
-            metadata = {'result_fmt' : fmt, 'status' : Status.FAILED, 'error' : exc_info}
-            return metadata, None
+        result = execute_msg(msg)
+        metadata = {'result_fmt' : fmt, 'status' : Status.FINISHED}
+        return metadata, result
 
     def call_async(self, msg, metadata, queue_name):
         ## at some point, we might pass strings
@@ -99,7 +100,10 @@ class RPC(object):
         func_string = metadata.get('func_string')
         if func_string is not None:
             func = self.resolve_function(func_string)
+            if func is None:
+                raise KitchenSinkError("Unknownn function %s" % func_string)
             msg = append_rpc_data(msg, {'func' : func}, fmt='cloudpickle')
+        logger.debug("dispatching %s to %s", func.__name__, queue_name)
         job_id, status = self.task_queue.enqueue(
             queue_name,
             execute_msg,
@@ -166,6 +170,23 @@ def _execute_msg(msg):
     result = func(*args, **kwargs)
     return result
 
+def patch_loggers(output):
+    patched = []
+    to_patch = logging.Logger.manager.loggerDict.values()
+    to_patch.append(logging.Logger.manager.root)
+    for logger in to_patch:
+        if not hasattr(logger, 'handlers'):
+            continue
+        for handler in logger.handlers:
+            if isinstance(handler , logging.StreamHandler):
+                patched.append((handler, handler.stream))
+                handler.stream = output
+    return patched
+
+def unpatch_loggers(patched):
+    for handler, stream in patched:
+        handler.stream = stream
+
 def execute_msg(msg):
     with Connection(settings.redis_conn):
         job = get_current_job()
@@ -181,6 +202,7 @@ def execute_msg(msg):
     with open(output, "w+", 0) as towrite:
         sys.stdout = towrite
         sys.stderr = towrite
+        patched = patch_loggers(towrite)
         try:
             output_thread.start()
             result = _execute_msg(msg)
@@ -188,6 +210,7 @@ def execute_msg(msg):
         finally:
             sys.stdout = old_stdout
             sys.stderr = old_stderr
+            unpatch_loggers(patched)
             output_thread.kill = True
             output_thread.join()
 

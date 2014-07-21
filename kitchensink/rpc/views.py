@@ -1,4 +1,5 @@
 import logging
+from os.path import exists
 import traceback
 
 from flask import request, current_app, jsonify, send_file
@@ -38,17 +39,48 @@ def status(job_id):
     result = pack_result(metadata, value, fmt=metadata['result_fmt'])
     return current_app.response_class(response=result,
                                       status=200,
-                                      mimetype='application/octet-sream')
+                                      mimetype='application/octet-stream')
 
-@rpcblueprint.route("/data/<path>/", methods=['GET'])
+@rpcblueprint.route("/data/<path:path>/", methods=['GET'])
 def get_data(path):
     #check auth here if we're doing auth
-    local_path = settings.catalog.get_file_path(path)
-    return send_file(local_path)
+    offset = request.values.get('offset')
+    length = request.values.get('length')
+    if offset is not None and length is not None:
+        local_path = settings.catalog.get_file_path(path, unfinished=True)
+        offset = int(offset)
+        length = int(length)
+        if not exists(local_path):
+            data = b""
+        else:
+            with open(local_path, "r") as f:
+                f.seek(offset)
+                data = f.read(length)
+        logger.info("sending %s of %s", len(data), path)
+        return current_app.response_class(response=data,
+                                          status=200,
+                                          mimetype='application/octet-stream')
+    else:
+        local_path = settings.catalog.get_file_path(path)
+        logger.info("sending %s", path)
+        return send_file(local_path)
 
-@rpcblueprint.route("/data/<path>/", methods=['POST'])
+@rpcblueprint.route("/data/<path:path>/", methods=['POST'])
 def put_data(path):
     #check auth here if we're doing auth
     fstorage = request.files['data']
     settings.catalog.write(fstorage, path, is_new=True)
     return jsonify(success=True)
+
+@rpcblueprint.route("/chunkeddata/<path:path>/", methods=['GET'])
+def get_chunked_data(path):
+    #check auth here if we're doing auth
+    offset = int(request.values['offset'])
+    length = int(request.values['offset'])
+    local_path = settings.catalog.get_file_path(path)
+    with open(local_path, "rb") as f:
+        f.seek(offset)
+        data = f.read(local_path, settings.chunk_size)
+    return current_app.response_class(response=data,
+                                      status=200,
+                                      mimetype='application/octet-sream')
