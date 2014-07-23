@@ -10,8 +10,8 @@ from kitchensink.testutils.testrpc import make_rpc, dummy_add
 from kitchensink.serialization import (json_serialization,
                                        dill_serialization,
                                        pickle_serialization,
-                                       pack_msg,
-                                       unpack_msg)
+                                       pack_rpc_call,
+                                       unpack_result)
 
 def test_rpc():
     a = pd.DataFrame({'a' : [1,2]})
@@ -19,17 +19,16 @@ def test_rpc():
     rpc = make_rpc()
     args = (a,b)
     kwargs = {}
-    metadata = {'fmt' : 'dill',
-                'async' : False}
-    data = {'func' : 'dummy_add',
-            'args' : args,
+    metadata = {'result_fmt' : 'dill',
+                'async' : False,
+                'func_string' : 'dummy_add'}
+    data = {'args' : args,
             'kwargs' : kwargs}
-    msg = pack_msg(metadata, data)
+    msg = pack_rpc_call(metadata, data, fmt='dill')
     result = rpc.call(msg)
-    metadata, result = unpack_msg(result)
+    msg_format, [metadata, result] = unpack_result(result)
     status = metadata['status']
     assert status == Status.FINISHED
-    assert metadata['fmt'] == 'dill'
     result = result == dummy_add(a, b)
     assert np.all(result)
 
@@ -39,17 +38,18 @@ def test_rpc_json():
     rpc = make_rpc()
     args = (a,b)
     kwargs = {}
-    metadata = {'fmt' : 'json',
-                'async' : False}
-    data = {'func' : 'dummy_add',
+    metadata = {'result_fmt' : 'json',
+                'async' : False,
+                'func_string' : 'dummy_add'}
+    data = {
             'args' : args,
             'kwargs' : kwargs}
-    msg = pack_msg(metadata, data)
+    msg = pack_rpc_call(metadata, data, fmt='dill')
     result = rpc.call(msg)
-    metadata, result = unpack_msg(result)
+    msg_format, [metadata, result] = unpack_result(result)
     status = metadata['status']
     assert status == Status.FINISHED
-    assert metadata['fmt'] == 'json'
+    assert metadata['result_fmt'] == 'json'
     assert result == 3
 
 def test_rpc_error():
@@ -58,15 +58,17 @@ def test_rpc_error():
     rpc = make_rpc()
     args = (a,b)
     kwargs = {}
-    metadata = {'fmt' : 'json',
-                'async' : False}
-    data = {'func' : 'dummy_add',
+    metadata = {'result_fmt' : 'json',
+                'async' : False,
+                'func_string' : 'dummy_add',
+    }
+    data = {
             'args' : args,
             'kwargs' : kwargs}
-    msg = pack_msg(metadata, data)
+    msg = pack_rpc_call(metadata, data, fmt='json')
     result = rpc.call(msg)
-    metadata, result = unpack_msg(result)
+    msg_format, [metadata, result] = unpack_result(result)
     status = metadata['status']
     assert status == Status.FAILED
-    assert metadata['fmt'] == 'json'
+    assert metadata['result_fmt'] == 'json'
     print (metadata['error'])
