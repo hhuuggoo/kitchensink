@@ -16,7 +16,6 @@ from kitchensink.data.datarpc import make_rpc
 from kitchensink.data import Catalog
 import kitchensink.settings as settings
 
-print ('**PID', os.getpid())
 comments = \
 """
 kitchen sink RPC Server
@@ -71,9 +70,10 @@ def run(redis_connection, node_url, node_port,
         num_workers, no_redis, queue, module, datadir):
     register_shutdown()
     redis_connection_info = parse_redis_connection(redis_connection)
+    pid_file = "ks-%s.pid" % node_port
     if not no_redis:
         print ("Starting redis on %s" % redis_connection)
-        start_redis("kitchensink.pid", redis_connection_info['port'], os.getcwd())
+        start_redis(pid_file, redis_connection_info['port'], os.getcwd())
         time.sleep(1)
     cmd = [sys.executable, '-m', 'kitchensink.scripts.start_worker',
            '--node-url', node_url,
@@ -92,7 +92,7 @@ def run(redis_connection, node_url, node_port,
     for q in queue:
         cmd.extend(['--queue', q])
     for c in range(num_workers):
-        ManagedProcess(cmd, 'worker-%s' % c, 'kitchensink.pid')
+        ManagedProcess(cmd, 'worker-%s' % c, pid_file)
 
     mod = __import__(module)
     data_rpc = make_rpc()

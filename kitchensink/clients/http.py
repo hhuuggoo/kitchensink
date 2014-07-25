@@ -137,7 +137,6 @@ class Client(object):
                     results[job_id] = data
                 else:
                     pass
-        print "**DONE", time.time()
         return [results[x] for x in job_ids]
 
     def cancel(self, jobid):

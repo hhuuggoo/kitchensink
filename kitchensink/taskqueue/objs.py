@@ -156,7 +156,6 @@ class KitchenSinkRedisQueue(Queue):
         if result is None:
             return None
         queue_key, job_id = map(as_text, result)
-        print ("********GRABBED", queue_key, job_id, time.time())
         if connection is None:
             connection = self.connection
         """We now enqueue jobs on multiple queues, so when we pop them

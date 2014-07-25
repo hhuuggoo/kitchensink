@@ -30,7 +30,6 @@ class TaskQueue(object):
         job.save()
         for queue_name in queue_names:
             queue = self.get_queue(queue_name)
-            print ("**********", job, queue)
             queue.enqueue_job(job)
             #time.sleep(interval)
         return job._id, job.get_status()

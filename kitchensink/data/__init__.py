@@ -222,7 +222,6 @@ class RemoteData(object):
         return Client(rpc_url, rpc_name='data', queue_name='data')
 
     def _get(self):
-        #print '*****', settings.catalog
         if settings.catalog:
             return settings.catalog.get(self.data_url)
         c = self.client(self.rpc_url)
