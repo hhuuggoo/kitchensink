@@ -11,6 +11,62 @@ from ..serialization import serializer, deserializer
 import logging
 logger = logging.getLogger(__name__)
 
+def empty(result):
+    """result of pop operation. dict of lists
+    """
+    for r in result.values():
+        if len(r) != 0:
+            return True
+    return False
+
+def nonblock_pop(connection, keys, timeout=5.0):
+    for k in keys:
+        msg = connection.lpop(k)
+        if msg:
+            msg = deserializer('json')(msg)
+            return k, msg
+    return None
+
+def pop(connection, keys, timeout=5.0):
+    msg = connection.blpop(keys, timeout=timeout)
+    if msg is None:
+        return None
+    k, msg = msg
+    msg = deserializer('json')(msg)
+    return k, msg
+
+def _grab_all_messages(connection, keys):
+    messages = []
+    while True:
+        msg = nonblock_pop(connection, keys, timeout=0.0)
+        if msg is None:
+            break
+        k, msg = msg
+        messages.append((k, msg))
+    return messages
+
+def _block_and_grab_all_messages(connection, keys, timeout=5.0):
+    messages = []
+    msg = pop(connection, keys, timeout=timeout)
+    if msg is None:
+        return []
+    else:
+        messages = _grab_all_messages(connection, keys)
+        return [msg] + messages
+
+def pull_intermediate_results(connection, keys, timeout=5):
+    """pull all messages off the queue.  We pull objects
+    in a non blocking manner first.  If we something, we return that
+    something. if we get nothing, then we do a blocking pop
+    for timeout
+    """
+    keys = ["rq:job:"+ x + ":intermediate_results" for x in keys]
+    messages = _grab_all_messages(connection, keys)
+    if not messages:
+        messages =  _block_and_grab_all_messages(connection, keys, timeout=timeout)
+    messages = [(x[0].split(":")[2], x[1]) for x in messages]
+    return messages
+
 class KitchenSinkJob(Job):
     @property
     def intermediate_results_key(self):

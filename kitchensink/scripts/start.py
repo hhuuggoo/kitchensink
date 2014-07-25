@@ -5,6 +5,8 @@ import sys
 import logging
 import time
 
+from redis.exceptions import ConnectionError
+
 from simpleservices.redis import start_redis
 from simpleservices.process import register_shutdown, ManagedProcess, close_all
 from werkzeug.serving import run_with_reloader
@@ -12,6 +14,7 @@ from kitchensink.utils import parse_redis_connection
 from kitchensink.rpc.server import make_app, run as runserver, register_rpc
 from kitchensink.data.datarpc import make_rpc
 from kitchensink.data import Catalog
+import kitchensink.settings as settings
 
 print ('**PID', os.getpid())
 comments = \
@@ -77,15 +80,20 @@ def run(redis_connection, node_url, node_port,
            '--redis-connection', redis_connection,
            '--datadir', datadir,
     ]
+    make_app(redis_connection_info, node_port, node_url, datadir)
+    for c in range(10):
+        try:
+            result = settings.redis_conn.ping()
+            break
+        except ConnectionError:
+            time.sleep(1.0)
     if queue is None:
         queue = ['default']
     for q in queue:
         cmd.extend(['--queue', q])
     for c in range(num_workers):
         ManagedProcess(cmd, 'worker-%s' % c, 'kitchensink.pid')
-    make_app(redis_connection_info, node_port, node_url, datadir)
-    import kitchensink.settings
-    print ('***', id(kitchensink.settings.catalog))
+
     mod = __import__(module)
     data_rpc = make_rpc()
     register_rpc(data_rpc, 'data')

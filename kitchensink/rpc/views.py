@@ -6,7 +6,7 @@ from flask import request, current_app, jsonify, send_file
 from rq.job import Status
 
 from .app import rpcblueprint
-from ..serialization import pack_result
+from ..serialization import pack_result, pack_results
 from .. import settings
 
 logger = logging.getLogger(__name__)
@@ -37,6 +37,20 @@ def status(job_id):
         timeout = float(timeout)
     metadata, value = rpcblueprint.task_queue.status(job_id, timeout=timeout)
     result = pack_result(metadata, value, fmt=metadata['result_fmt'])
+    return current_app.response_class(response=result,
+                                      status=200,
+                                      mimetype='application/octet-stream')
+
+@rpcblueprint.route("/bulkstatus/")
+def bulk_status():
+    timeout = request.values.get('timeout')
+    job_ids = request.values.get('job_ids').split(",")
+    if timeout:
+        timeout = float(timeout)
+    metadata_data_pairs = rpcblueprint.task_queue.bulkstatus(job_ids, timeout=timeout)
+    print (metadata_data_pairs)
+    fmt = [x[0]['result_fmt'] for x in metadata_data_pairs]
+    result = pack_results(metadata_data_pairs, fmt=fmt)
     return current_app.response_class(response=result,
                                       status=200,
                                       mimetype='application/octet-stream')

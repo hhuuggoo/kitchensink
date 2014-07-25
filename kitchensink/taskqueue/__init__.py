@@ -4,7 +4,7 @@ from rq.job import Status
 from rq import Queue
 from rq import Connection
 
-from .objs import KitchenSinkJob, KitchenSinkRedisQueue
+from .objs import KitchenSinkJob, KitchenSinkRedisQueue, pull_intermediate_results
 
 class TaskQueue(object):
     def __init__(self, redis_conn):
@@ -25,6 +25,34 @@ class TaskQueue(object):
             job.meta[k] = v
         job.save()
         return job._id, job.get_status()
+
+    def bulkstatus(self, job_ids, timeout=5.0):
+        with Connection(self.conn):
+            jobs = [KitchenSinkJob(job_id) for job_id in job_ids]
+        statuses = [job.get_status() for job in jobs]
+        if any([x in {Status.FINISHED, Status.FAILED} for x in statuses]):
+            messages = pull_intermediate_results(self.conn, job_ids, timeout=0)
+        else:
+            messages = pull_intermediate_results(self.conn, job_ids, timeout=timeout)
+        statuses = [job.get_status() for job in jobs]
+        metadata = {}
+        results = {}
+        messages_by_job = {}
+        for job_id, msg in messages:
+            messages_by_job.setdefault(job_id, []).append(msg)
+        for job_id, job, status in zip(job_ids, jobs, statuses):
+            job.refresh()
+            mdata = copy.copy(job.meta)
+            mdata['status'] = status
+            mdata['msgs'] = messages_by_job.get(job_id, [])
+            metadata[job_id] = mdata
+            if status == Status.FINISHED:
+                results[job_id] = job.return_value
+            elif status == Status.FAILED:
+                results[job_id] = job.exc_info
+            else:
+                results[job_id] = None
+        return [(metadata[job_id], results[job_id]) for job_id in job_ids]
 
     def status(self, job_id, timeout=None):
         """timeout is None - default to non-blocking

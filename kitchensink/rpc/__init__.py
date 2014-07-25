@@ -103,7 +103,7 @@ class RPC(object):
             if func is None:
                 raise KitchenSinkError("Unknownn function %s" % func_string)
             msg = append_rpc_data(msg, {'func' : func}, fmt='cloudpickle')
-        logger.debug("dispatching %s to %s", func.__name__, queue_name)
+            logger.debug("dispatching %s to %s", func.__name__, queue_name)
         job_id, status = self.task_queue.enqueue(
             queue_name,
             execute_msg,

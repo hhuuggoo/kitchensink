@@ -146,3 +146,15 @@ def pack_result(metadata, data, fmt=None):
 
 def unpack_result(input_string):
     return unpack_msg(input_string)
+
+def pack_results(metadata_data_pairs, fmt=None):
+    data = reduce(lambda x, y : x + y, metadata_data_pairs)
+    fmt = [('json', f) for f in fmt]
+    fmt = reduce(lambda x, y : x + y, fmt)
+    return pack_msg(*data, fmt=fmt)
+
+def unpack_results(input_string):
+    msg_format, metadata_data_pairs = unpack_msg(input_string)
+    metadata_data_pairs = [(metadata_data_pairs[x], metadata_data_pairs[x+1]) for x in \
+                           range(0, len(metadata_data_pairs), 2)]
+    return metadata_data_pairs

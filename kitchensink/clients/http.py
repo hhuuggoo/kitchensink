@@ -6,7 +6,7 @@ import dill
 from rq.job import Status
 
 from ..serialization import (serializer, deserializer, unpack_result,
-                             pack_rpc_call)
+                             pack_rpc_call, unpack_results)
 from ..utils import make_query_url
 
 class Client(object):
@@ -55,12 +55,11 @@ class Client(object):
         elif metadata['status'] == Status.FINISHED:
             return data
         elif async:
-            return AsyncResult(self, metadata['job_id'])
+            return metadata['job_id']
 
-    def async_result(self, jobid, interval=0.1, retries=10):
+    def async_result(self, jobid, retries=10):
         for c in range(retries):
             url = self.url + "rpc/status/%s" % jobid
-            time.sleep(interval)
             result = requests.get(url,
                                   headers={'content-type' : 'application/octet-stream'})
             msg_format, [metadata, data] = unpack_result(result.content)
@@ -75,6 +74,35 @@ class Client(object):
                 return data
             elif metadata['status'] == Status.STARTED:
                 pass
+
+    def bulk_async_result(self, job_ids, timeout=60.0):
+        to_query = job_ids
+        raw_url = self.url + "rpc/bulkstatus/"
+        results = {}
+        st = time.time()
+        while True:
+            to_query = list(set(to_query).difference(set(results.keys())))
+            if time.time() - st > timeout:
+                break
+            if len(to_query) == 0:
+                break
+            url = make_query_url(raw_url, {'job_ids' : ",".join(to_query)})
+            result = requests.get(url,
+                                  headers={'content-type' : 'application/octet-stream'})
+            metadata_data_pairs = unpack_results(result.content)
+            for job_id, (metadata, data) in zip(to_query, metadata_data_pairs):
+                for msg in metadata.get('msgs', []):
+                    if msg['type'] == 'status':
+                        print (msg)
+                    else:
+                        print (msg['msg'])
+                if metadata['status'] == Status.FAILED:
+                    raise Exception(data)
+                elif metadata['status'] == Status.FINISHED:
+                    results[job_id] = data
+                else:
+                    pass
+        return results
 
     def _get_data(self, path, offset=None, length=None):
         url = self.url + "rpc/data/%s/" % path
@@ -97,11 +125,3 @@ class Client(object):
 
     def path_search(self, pattern):
         return self.call('search_path', pattern, _async=True, _rpc_name='data').result()
-
-class AsyncResult(object):
-    def __init__(self, rpc, *jobid):
-        self.rpc = rpc
-        self.jobid = jobid
-
-    def result(self):
-        return self.rpc.async_result(self.jobid)

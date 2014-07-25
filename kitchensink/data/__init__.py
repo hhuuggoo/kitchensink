@@ -340,8 +340,7 @@ class RemoteData(object):
                 )
                 calls.append(result)
             self._put(f)
-            for c in calls:
-                print (c.result())
+            print c.bulk_async_result(calls)
         except Exception as e:
             f.close()
             logger.exception(e)
