@@ -8,6 +8,7 @@ from rq.job import Status
 from ..serialization import (serializer, deserializer, unpack_result,
                              pack_rpc_call, unpack_results)
 from ..utils import make_query_url
+from ..errors import KitchenSinkError
 
 class Client(object):
     def __init__(self, url, rpc_name='default',
@@ -97,12 +98,24 @@ class Client(object):
                     else:
                         print (msg['msg'])
                 if metadata['status'] == Status.FAILED:
+                    for job_id in to_query:
+                        self.cancel(job_id)
                     raise Exception(data)
                 elif metadata['status'] == Status.FINISHED:
                     results[job_id] = data
                 else:
                     pass
         return results
+
+    def cancel(self, jobid):
+        """cannot currently cancel running jobs
+        """
+        url = self.url + "rpc/cancel/%s" % jobid
+        resp = requests.get(url)
+        if resp.status_code == 200:
+            return
+        else:
+            raise KitchenSinkError("Failed to cancel %s" % jobid)
 
     def _get_data(self, path, offset=None, length=None):
         url = self.url + "rpc/data/%s/" % path

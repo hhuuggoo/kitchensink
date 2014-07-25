@@ -21,6 +21,7 @@ def make_json(jsonstring, status_code=200, headers={}):
                                       headers=headers,
                                       mimetype='application/json')
 
+### job endpoints
 @rpcblueprint.route("/call/<rpcname>/", methods=['POST'])
 def call(rpcname):
     msg = request.data
@@ -41,6 +42,11 @@ def status(job_id):
                                       status=200,
                                       mimetype='application/octet-stream')
 
+@rpcblueprint.route("/cancel/<job_id>/")
+def status(job_id):
+    rpcblueprint.task_queue.cancel(job_id)
+    return "success"
+
 @rpcblueprint.route("/bulkstatus/")
 def bulk_status():
     timeout = request.values.get('timeout')
@@ -48,12 +54,13 @@ def bulk_status():
     if timeout:
         timeout = float(timeout)
     metadata_data_pairs = rpcblueprint.task_queue.bulkstatus(job_ids, timeout=timeout)
-    print (metadata_data_pairs)
     fmt = [x[0]['result_fmt'] for x in metadata_data_pairs]
     result = pack_results(metadata_data_pairs, fmt=fmt)
     return current_app.response_class(response=result,
                                       status=200,
                                       mimetype='application/octet-stream')
+
+### Data endpoints
 
 @rpcblueprint.route("/data/<path:path>/", methods=['GET'])
 def get_data(path):

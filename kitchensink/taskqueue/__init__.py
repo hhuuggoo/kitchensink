@@ -1,7 +1,7 @@
 import copy
 
 from rq.job import Status
-from rq import Queue
+from rq import Queue, cancel_job
 from rq import Connection
 
 from .objs import KitchenSinkJob, KitchenSinkRedisQueue, pull_intermediate_results
@@ -79,3 +79,6 @@ class TaskQueue(object):
             return metadata, job.exc_info
         else:
             return metadata, None
+    def cancel(self, job_id):
+        with Connection(self.conn):
+            cancel_job(job_id)
