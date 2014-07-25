@@ -43,7 +43,7 @@ def status(job_id):
                                       mimetype='application/octet-stream')
 
 @rpcblueprint.route("/cancel/<job_id>/")
-def status(job_id):
+def cancel(job_id):
     rpcblueprint.task_queue.cancel(job_id)
     return "success"
 

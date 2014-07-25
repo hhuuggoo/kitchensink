@@ -27,7 +27,7 @@ def test_func(x, y):
     result.save()
     return result
 c = Client("http://localhost:6324/", rpc_name='test')
-result = c.call(test_func, a, b).result()
+result = c.async_result(c.call(test_func, a, b))
 print result
 print result.local_path()
 print result.obj()

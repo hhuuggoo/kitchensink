@@ -12,11 +12,8 @@ def test_func(x, y):
     print 'foo'
     return test_func2(x, y)
 
-objs = [c.call(test_func, a, a, _async=True) for cc in range(10)]
-print objs
-for obj in objs:
-    print obj.result()
-
+jobids = [c.call(test_func, a, a, _async=True) for cc in range(10)]
+print c.bulk_async_result(jobids)
 print c.call('dummy_mult', a, a, _async=False)
 print c.call('dummy_add', a, a, _async=False)
 try:

@@ -9,6 +9,7 @@ from ..serialization import (serializer, deserializer, unpack_result,
                              pack_rpc_call, unpack_results)
 from ..utils import make_query_url
 from ..errors import KitchenSinkError
+from .. import settings
 
 class Client(object):
     def __init__(self, url, rpc_name='default',
@@ -105,7 +106,7 @@ class Client(object):
                     results[job_id] = data
                 else:
                     pass
-        return results
+        return [results[x] for x in job_ids]
 
     def cancel(self, jobid):
         """cannot currently cancel running jobs
@@ -137,4 +138,4 @@ class Client(object):
         return host
 
     def path_search(self, pattern):
-        return self.call('search_path', pattern, _async=True, _rpc_name='data').result()
+        return self.async_result(self.call('search_path', pattern, _async=True, _rpc_name='data'))
