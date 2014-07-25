@@ -3,6 +3,7 @@ import sys
 
 from ..rpc import RPC
 from .. import settings
+from . import hosts
 
 logger = logging.getLogger(__name__)
 def get_info(path):
@@ -20,17 +21,6 @@ def chunked_copy(url, length, host):
     iterator = settings.catalog.get_chunked_iterator(url, length, host)
     settings.catalog.write_chunked(iterator, url, is_new=False)
 
-def hosts():
-    if settings.prefix:
-        host_key = settings.prefix + ":" + "hosts"
-        hostinfo_key = settings.prefix + ":" + "hostinfo"
-    else:
-        host_key = "hosts"
-        hostinfo_key = "hostinfo"
-    possible_hosts = settings.redis_conn.smembers(host_key)
-    hosts = settings.redis_conn.mget(*possible_hosts)
-    hosts = [x for x in hosts if x is not None]
-    return hosts
 
 def make_rpc():
     rpc = RPC()

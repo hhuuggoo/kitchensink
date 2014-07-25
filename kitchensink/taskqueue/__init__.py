@@ -1,4 +1,5 @@
 import copy
+import time
 
 from rq.job import Status
 from rq import Queue, cancel_job
@@ -18,13 +19,29 @@ class TaskQueue(object):
                 self.queues[name] = queue
         return self.queues[name]
 
-    def enqueue(self, queue_name, func, args, kwargs, metadata={}):
-        queue = self.get_queue(queue_name)
-        job = self.get_queue(queue_name).enqueue_call(func, args=args, kwargs=kwargs)
+    def enqueue(self, queue_names, func, args, kwargs, metadata={}, interval=0.01):
+
+        job = KitchenSinkJob.create(
+            func, args, kwargs, connection=self.conn,
+            result_ttl=None, status=Status.QUEUED,
+            description=None, depends_on=None, timeout=None)
         for k,v in metadata.items():
             job.meta[k] = v
         job.save()
+        for queue_name in queue_names:
+            queue = self.get_queue(queue_name)
+            print ("**********", job, queue)
+            queue.enqueue_job(job)
+            #time.sleep(interval)
         return job._id, job.get_status()
+
+    # def enqueue(self, queue_name, func, args, kwargs, metadata={}):
+    #     queue = self.get_queue(queue_name)
+    #     job = self.get_queue(queue_name).enqueue_call(func, args=args, kwargs=kwargs)
+    #     for k,v in metadata.items():
+    #         job.meta[k] = v
+    #     job.save()
+    #     return job._id, job.get_status()
 
     def bulkstatus(self, job_ids, timeout=5.0):
         with Connection(self.conn):

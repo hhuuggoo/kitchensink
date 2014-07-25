@@ -19,6 +19,18 @@ from ..utils.pathutils import urlsplit, dirsplit, urljoin
 
 logger = logging.getLogger(__name__)
 
+def hosts():
+    if settings.prefix:
+        host_key = settings.prefix + ":" + "hosts"
+        hostinfo_key = settings.prefix + ":" + "hostinfo"
+    else:
+        host_key = "hosts"
+        hostinfo_key = "hostinfo"
+    possible_hosts = settings.redis_conn.smembers(host_key)
+    hosts = settings.redis_conn.mget(*possible_hosts)
+    hosts = [x for x in hosts if x is not None]
+    return hosts
+
 class Catalog(object):
     def __init__(self, connection, datadir, host_url, prefix=None):
         """connection - redis connection
@@ -88,7 +100,9 @@ class Catalog(object):
 
         with open(file_path, "wb+") as f:
             self._raw_write(finput, f)
-
+        if is_new:
+            size = stat(file_path).st_size
+            self.set_metadata(url, size)
         self.add(file_path, url)
         return file_path
 
@@ -137,6 +151,7 @@ class Catalog(object):
         while True:
             if data_read == length:
                 break
+            #logger.info("%s, %s, %s", url, data_read, settings.chunk_size)
             data = c._get_data(url, data_read, settings.chunk_size)
             if data.status_code != 200:
                 raise KitchenSinkError("http error")
@@ -160,6 +175,7 @@ class Catalog(object):
             return self.write(stream, url, is_new=False)
 
     def get_info(self, url):
+
         hosts_info = self.conn.hgetall(self.path_key(url))
         data_info = self.conn.hgetall(self.data_key(url))
         if 'size' in data_info:
@@ -175,6 +191,7 @@ class Catalog(object):
             raise KitchenSinkError, "Must be inside datadir"
         return file_path
 
+## should factor this out into a separate module
 class RemoteData(object):
     def __init__(self, obj=None, local_path=None, data_url=None, rpc_url=None,
                  fmt="cloudpickle"):

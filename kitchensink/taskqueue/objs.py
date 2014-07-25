@@ -1,10 +1,13 @@
 """module for rq subclasses
 """
+import time
+
 from rq import Queue, Worker
-from rq.job import Job, UNEVALUATED, Status
+from rq.job import Job, UNEVALUATED, Status, NoSuchJobError
 import rq.job
 from rq.worker import StopRequested
 from rq.logutils import setup_loghandlers
+from rq.compat import total_ordering, string_types, as_text
 import dill
 
 from ..serialization import serializer, deserializer
@@ -28,6 +31,8 @@ def nonblock_pop(connection, keys, timeout=5.0):
     return None
 
 def pop(connection, keys, timeout=5.0):
+    if timeout == 0:
+        import pdb; pdb.set_trace()
     msg = connection.blpop(keys, timeout=timeout)
     if msg is None:
         return None
@@ -62,7 +67,8 @@ def pull_intermediate_results(connection, keys, timeout=5):
     """
     keys = ["rq:job:"+ x + ":intermediate_results" for x in keys]
     messages = _grab_all_messages(connection, keys)
-    if not messages:
+    #if timeout is 0, then we want instant return, do not do blocking call
+    if not messages and timeout != 0:
         messages =  _block_and_grab_all_messages(connection, keys, timeout=timeout)
     messages = [(x[0].split(":")[2], x[1]) for x in messages]
     return messages
@@ -71,6 +77,20 @@ class KitchenSinkJob(Job):
     @property
     def intermediate_results_key(self):
         return self.key + ":" + "intermediate_results"
+
+    @classmethod
+    def claim_key_for(cls, job_id):
+        return cls.key_for(job_id) + ":claim"
+
+    @classmethod
+    def claim_for(cls, connection, job_id, queue_name):
+        val = connection.setnx(cls.claim_key_for(job_id), queue_name)
+        if val == 0:
+            logger.info("failed to claim %s for %s", job_id, queue_name)
+            return False
+        else:
+            logger.info("succeeded to claim %s for %s", job_id, queue_name)
+            return True
 
     def push_intermediate_results(self, result):
         msg = serializer('json')(result)
@@ -87,29 +107,6 @@ class KitchenSinkJob(Job):
     def push_stdout(self, output):
         self.push_intermediate_results({'type' : 'stdout',
                                         'msg' : output})
-    def _grab_all_messages(self):
-        messages = []
-        while True:
-            msg = self.connection.lpop(self.intermediate_results_key)
-            if msg is None:
-                break
-            msg = deserializer('json')(msg)
-            messages.append(msg)
-        return messages
-
-    def _block_and_grab_all_messages(self, timeout=5.0):
-        result = self.connection.blpop(self.intermediate_results_key,
-                                       timeout=timeout)
-        if result:
-            _, msg =  result
-        else:
-            msg = None
-        if msg:
-            msg = deserializer('json')(msg)
-            messages = self._grab_all_messages()
-            return [msg] + messages
-        else:
-            return []
 
     def pull_intermediate_results(self, timeout=5):
         """pull all messages off the queue.  We pull objects
@@ -117,14 +114,71 @@ class KitchenSinkJob(Job):
         something. if we get nothing, then we do a blocking pop
         for timeout
         """
-        messages = self._grab_all_messages()
-        if messages:
-            return messages
-        else:
-            return self._block_and_grab_all_messages(timeout=timeout)
+        messages = pull_intermediate_results(self.connection,
+                                             [self.id],
+                                             timeout=self.timeout)
+        messages = [x[1] for x in messages]
+        return messages
 
 class KitchenSinkRedisQueue(Queue):
     job_class = KitchenSinkJob
+    def enqueue_job(self, job, set_meta_data=True):
+        """Enqueues a job for delayed execution.
+
+        If the `set_meta_data` argument is `True` (default), it will update
+        the properties `origin` and `enqueued_at`.
+
+        If Queue is instantiated with async=False, job is executed immediately.
+        """
+        # Add Queue key set
+        self.connection.sadd(self.redis_queues_keys, self.key)
+        if self._async:
+            self.push_job_id(job.id)
+        else:
+            job.perform()
+            job.save()
+        return job
+
+    @classmethod
+    def dequeue_any(cls, queues, timeout, connection=None):
+        """Class method returning the job_class instance at the front of the given
+        set of Queues, where the order of the queues is important.
+
+        When all of the Queues are empty, depending on the `timeout` argument,
+        either blocks execution of this function for the duration of the
+        timeout or until new messages arrive on any of the queues, or returns
+        None.
+
+        See the documentation of cls.lpop for the interpretation of timeout.
+        """
+        queue_keys = [q.key for q in queues]
+        result = cls.lpop(queue_keys, timeout, connection=connection)
+        if result is None:
+            return None
+        queue_key, job_id = map(as_text, result)
+        print ("********GRABBED", queue_key, job_id, time.time())
+        if connection is None:
+            connection = self.connection
+        """We now enqueue jobs on multiple queues, so when we pop them
+        we have to try to claim it.  if we can't claim it, discard,
+        that means another worker has it
+        """
+        if not cls.job_class.claim_for(connection, job_id, queue_key):
+            return cls.dequeue_any(queues, timeout, connection=connection)
+        queue = cls.from_queue_key(queue_key, connection=connection)
+        try:
+            job = cls.job_class.fetch(job_id, connection=connection)
+        except NoSuchJobError:
+            # Silently pass on jobs that don't exist (anymore),
+            # and continue by reinvoking the same function recursively
+            return cls.dequeue_any(queues, timeout, connection=connection)
+        except UnpickleError as e:
+            # Attach queue information on the exception for improved error
+            # reporting
+            e.job_id = job_id
+            e.queue = queue
+            raise e
+        return job, queue
 
 class KitchenSinkWorker(Worker):
     job_class = KitchenSinkJob

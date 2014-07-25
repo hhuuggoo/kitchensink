@@ -16,9 +16,26 @@ class Client(object):
                  queue_name="default",
                  fmt='cloudpickle'):
         self.url = url
-        self.rpc_name = rpc_name
+
         self.fmt = fmt
+        self.rpc_name = rpc_name
         self.queue_name = queue_name
+        self.data_threshold = 200000000 #200 megs
+
+    def data_info(self, urls):
+        results = {}
+        active_hosts = self.call('hosts', _async=False, _rpc_name="data",
+                                 _no_route_data=True)
+        for u in urls:
+            host_info, data_info = self.call('get_info', u,
+                                             _no_route_data=True,
+                                             _rpc_name="data",
+                                             _async=False)
+            for host in host_info.keys():
+                if host not in active_hosts:
+                    host_info.pop(host)
+            results[u] = host_info, data_info
+        return active_hosts, results
 
     def call(self, func, *args, **kwargs):
         #TODO: check for serialized function
@@ -29,8 +46,22 @@ class Client(object):
         else:
             func = func
         #pass func in to data later, when we support that kind of stuff
-
-        queue_name = kwargs.pop('_queue_name', self.queue_name)
+        if "_queue_name" in kwargs:
+            queue_names = [kwargs.pop("_queue_name")]
+        elif kwargs.pop('_no_route_data', False):
+            queue_names = [self.queue_name]
+        else:
+            #fixme circular import
+            from ..data.routing  import inspect, route
+            data_urls = inspect(args, kwargs)
+            if data_urls:
+                active_hosts, infos = self.data_info(data_urls)
+                queue_names = route(data_urls, active_hosts, infos, self.data_threshold)
+                #strip off size information
+                queue_names = [x[0] for x in queue_names]
+                print (queue_names)
+            else:
+                queue_names = [self.queue_name]
         fmt = self.fmt
         auth_string = ""
         async = kwargs.pop('_async', True)
@@ -39,7 +70,7 @@ class Client(object):
         metadata = dict(
             func_string=func_string,
             result_fmt=fmt,
-            queue_name=queue_name,
+            queue_names=queue_names,
             auth_string=auth_string,
             async=async)
 
@@ -106,6 +137,7 @@ class Client(object):
                     results[job_id] = data
                 else:
                     pass
+        print "**DONE", time.time()
         return [results[x] for x in job_ids]
 
     def cancel(self, jobid):
@@ -131,11 +163,15 @@ class Client(object):
         return result
 
     def pick_host(self, data_url):
-        host_info, data_info = self.call('get_info', data_url, _async=False)
+        host_info, data_info = self.call('get_info', data_url,
+                                         _rpc_name='data',
+                                         _async=False)
         if settings.host_url and settings.host_url in host_info:
             return host_info[settings.host_url]
         host = host_info.keys()[0]
         return host
 
     def path_search(self, pattern):
-        return self.async_result(self.call('search_path', pattern, _async=True, _rpc_name='data'))
+        return self.async_result(self.call('search_path', pattern,
+                                           _async=True,
+                                           _rpc_name='data'))

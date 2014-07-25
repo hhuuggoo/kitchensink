@@ -1,6 +1,8 @@
-from . import RemoteData
+
 
 def inspect(func_args, func_kwargs):
+    #fixme : circular import
+    from . import RemoteData
     urls = set()
     all_args = list(func_args) + func_kwargs.values()
     for arg in all_args:

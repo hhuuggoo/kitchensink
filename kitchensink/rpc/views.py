@@ -49,10 +49,10 @@ def cancel(job_id):
 
 @rpcblueprint.route("/bulkstatus/")
 def bulk_status():
-    timeout = request.values.get('timeout')
+    timeout = request.values.get('timeout', 1)
     job_ids = request.values.get('job_ids').split(",")
     if timeout:
-        timeout = float(timeout)
+        timeout = int(timeout)
     metadata_data_pairs = rpcblueprint.task_queue.bulkstatus(job_ids, timeout=timeout)
     fmt = [x[0]['result_fmt'] for x in metadata_data_pairs]
     result = pack_results(metadata_data_pairs, fmt=fmt)

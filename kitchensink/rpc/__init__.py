@@ -18,7 +18,7 @@ from ..serialization import (json_serialization,
                              append_rpc_data
 )
 
-from ..taskqueue.objs import get_current_job
+from ..taskqueue.objs import get_current_job, KitchenSinkJob
 from ..errors import UnauthorizedAccess, UnknownFunction, WrappedError, KitchenSinkError
 from ..settings import serializer, deserializer
 from .. import settings
@@ -62,7 +62,7 @@ class RPC(object):
 
         #metadata
         result_fmt = metadata.get('result_fmt', 'cloudpickle')
-        queue_name = metadata.get('queue_name', 'default')
+        queue_names = metadata.get('queue_names', ['default'])
         async = metadata.get('async', True)
         auth = metadata.get('auth', '')
         if auth and self.auth:
@@ -70,7 +70,7 @@ class RPC(object):
                 raise UnauthorizedException
         try:
             if async:
-                metadata, result = self.call_async(msg, metadata, queue_name)
+                metadata, result = self.call_async(msg, metadata, queue_names)
             else:
                 metadata, result =  self.call_instant(msg, metadata)
         except Exception as e:
@@ -91,7 +91,7 @@ class RPC(object):
         metadata = {'result_fmt' : fmt, 'status' : Status.FINISHED}
         return metadata, result
 
-    def call_async(self, msg, metadata, queue_name):
+    def call_async(self, msg, metadata, queue_names):
         ## at some point, we might pass strings
         ## directly to the backend task queue, but for now
         ## we parse them into python objects, and then
@@ -103,9 +103,8 @@ class RPC(object):
             if func is None:
                 raise KitchenSinkError("Unknownn function %s" % func_string)
             msg = append_rpc_data(msg, {'func' : func}, fmt='cloudpickle')
-            logger.debug("dispatching %s to %s", func.__name__, queue_name)
         job_id, status = self.task_queue.enqueue(
-            queue_name,
+            queue_names,
             execute_msg,
             [msg],
             {}, metadata=metadata
