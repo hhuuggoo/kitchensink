@@ -1,4 +1,10 @@
 from __future__ import print_function
+try:
+    import gevent.monkey
+except ImportError:
+    pass
+else:
+    gevent.monkey.patch_all()
 from argparse import ArgumentParser
 import os
 import sys

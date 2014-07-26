@@ -38,11 +38,16 @@ def close():
     rpcblueprint.heartbeat_thread.kill = True
     rpcblueprint.heartbeat_thread.join()
 
-def run():
+def run(gevent=True):
     app.debug = True
     rpcblueprint.heartbeat_thread.start()
     atexit.register(close)
-    app.run(host='0.0.0.0', port=app.port, use_reloader=False)
+    if gevent:
+         from gevent.pywsgi import WSGIServer
+         http_server = WSGIServer(("0.0.0.0", app.port), app)
+         http_server.serve_forever()
+    else:
+        app.run(host='0.0.0.0', port=app.port, use_reloader=False)
     close()
 
 class HeartbeatThread(Thread):
