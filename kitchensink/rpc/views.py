@@ -90,8 +90,12 @@ def get_data(path):
 def put_data(path):
     #check auth here if we're doing auth
     fstorage = request.files['data']
-    settings.catalog.write(fstorage, path, is_new=True)
-    return jsonify(success=True)
+    try:
+        settings.catalog.write(fstorage, path, is_new=True)
+        return jsonify(success=True)
+    except Exception as e:
+        exc_info = traceback.format_exc()
+        return jsonify(error=exc_info)
 
 @rpcblueprint.route("/chunkeddata/<path:path>/", methods=['GET'])
 def get_chunked_data(path):

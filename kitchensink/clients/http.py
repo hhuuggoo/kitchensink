@@ -159,7 +159,9 @@ class Client(object):
 
     def _put_data(self, path, f):
         url = self.url + "rpc/data/%s/" % path
-        result = requests.post(url, files={'data' : f})
+        result = requests.post(url, files={'data' : f}).json()
+        if result.get('error'):
+            raise Exception(result.get('error'))
         return result
 
     def pick_host(self, data_url):

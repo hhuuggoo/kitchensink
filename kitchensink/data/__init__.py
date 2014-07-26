@@ -316,7 +316,7 @@ class RemoteData(object):
             self._put(f)
         except Exception as e:
             f.close()
-            logger.exception(e)
+            raise e
 
     def pipeline(self, existing=False, url=None, prefix=""):
         if self.data_url and not existing:
@@ -359,4 +359,4 @@ class RemoteData(object):
             print c.bulk_async_result(calls)
         except Exception as e:
             f.close()
-            logger.exception(e)
+            raise e
