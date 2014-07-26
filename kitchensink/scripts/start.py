@@ -7,6 +7,7 @@ else:
     gevent.monkey.patch_all()
 from argparse import ArgumentParser
 import os
+from os.path import abspath
 import sys
 import logging
 import time
@@ -75,6 +76,7 @@ def run_args(args):
 
 def run(redis_connection, node_url, node_port,
         num_workers, no_redis, queue, module, datadir):
+    datadir = abspath(datadir)
     register_shutdown()
     redis_connection_info = parse_redis_connection(redis_connection)
     if node_port is None:

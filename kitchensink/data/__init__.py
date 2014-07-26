@@ -97,9 +97,10 @@ class Catalog(object):
                 raise KitchenSinkError("path already being used")
             else:
                 self.init_addition(file_path, url)
-
-        with open(file_path, "wb+") as f:
-            self._raw_write(finput, f)
+        if not exists(file_path):
+            print ("WRITING", file_path)
+            with open(file_path, "wb+") as f:
+                self._raw_write(finput, f)
         if is_new:
             size = stat(file_path).st_size
             self.set_metadata(url, size)
@@ -304,6 +305,7 @@ class RemoteData(object):
         else:
             self.data_url = url
         try:
+            f = None
             if self._raw:
                 f = cStringIO.StringIO()
                 f.write(self._raw)
@@ -315,7 +317,8 @@ class RemoteData(object):
                 f.write(data)
             self._put(f)
         except Exception as e:
-            f.close()
+            if f:
+                f.close()
             raise e
 
     def pipeline(self, existing=False, url=None, prefix=""):
