@@ -109,13 +109,11 @@ class KitchenSinkJob(Job):
         super(KitchenSinkJob, self).cleanup(ttl=ttl, pipeline=pipeline)
         self.connection.expire(self.intermediate_results_key, ttl)
 
-    def push_status(self, status=None, pipeline=None):
-        if status is None:
-            status = self.get_status()
+    def push_status(self):
+        status = self.get_status()
         self.push_intermediate_results({'type' : 'status',
-                                        'status' : status},
-                                       pipeline=pipeline
-        )
+                                        'status' : status})
+
     def push_stdout(self, output):
         self.push_intermediate_results({'type' : 'stdout',
                                         'msg' : output})
@@ -128,7 +126,7 @@ class KitchenSinkJob(Job):
         """
         messages = pull_intermediate_results(self.connection,
                                              [self.id],
-                                             timeout=self.timeout)
+                                             timeout=timeout)
         messages = [x[1] for x in messages]
         return messages
 
@@ -218,33 +216,31 @@ class KitchenSinkWorker(Worker):
         self.procline('Processing %s from %s since %s' % (
             job.func_name,
             job.origin, time.time()))
+        job.set_status(Status.STARTED)
+        job.push_status()
         with self.connection._pipeline() as pipeline:
             try:
-                job.set_status(Status.STARTED)
-                job.push_status()
 
                 with self.death_penalty_class(job.timeout or self.queue_class.DEFAULT_TIMEOUT):
                     rv = job.perform()
                 # Pickle the result in the same try-except block since we need to
                 # use the same exc handling when pickling fails
                 job._result = rv
-
                 self.set_current_job_id(None, pipeline=pipeline)
-
                 result_ttl = job.get_ttl(self.default_result_ttl)
-                job._status = Status.FINISHED
                 if result_ttl != 0:
                     job.save(pipeline=pipeline)
                 job.cleanup(result_ttl, pipeline=pipeline)
-                job.push_status(status=Status.FINISHED, pipeline=pipeline)
                 pipeline.execute()
 
             except Exception:
                 # Use the public setter here, to immediately update Redis
                 job.set_status(Status.FAILED)
                 self.handle_exception(job, *sys.exc_info())
+                job.push_status()
                 return False
-
+        job.set_status(Status.FINISHED)
+        job.push_status()
         if rv is None:
             self.log.info('Job OK')
         else:
