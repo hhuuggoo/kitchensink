@@ -1,12 +1,17 @@
 """module for rq subclasses
 """
 import time
+import random
+import signal
+import os
+import sys
 
 from rq import Queue, Worker
 from rq.job import Job, UNEVALUATED, Status, NoSuchJobError
 import rq.job
 from rq.worker import StopRequested
 from rq.logutils import setup_loghandlers
+from rq.utils import utcnow
 from rq.compat import total_ordering, string_types, as_text
 import dill
 
@@ -92,18 +97,25 @@ class KitchenSinkJob(Job):
             logger.info("succeeded to claim %s for %s", job_id, queue_name)
             return True
 
-    def push_intermediate_results(self, result):
+    def push_intermediate_results(self, result, pipeline=None):
+        if pipeline:
+            connection = pipeline
+        else:
+            connection = self.connection
         msg = serializer('json')(result)
-        self.connection.rpush(self.intermediate_results_key, msg)
+        connection.rpush(self.intermediate_results_key, msg)
 
     def cleanup(self, ttl=None, pipeline=None):
         super(KitchenSinkJob, self).cleanup(ttl=ttl, pipeline=pipeline)
         self.connection.expire(self.intermediate_results_key, ttl)
 
-    def push_status(self):
-        status = self.get_status()
+    def push_status(self, status=None, pipeline=None):
+        if status is None:
+            status = self.get_status()
         self.push_intermediate_results({'type' : 'status',
-                                        'status' : status})
+                                        'status' : status},
+                                       pipeline=pipeline
+        )
     def push_stdout(self, output):
         self.push_intermediate_results({'type' : 'stdout',
                                         'msg' : output})
@@ -119,6 +131,17 @@ class KitchenSinkJob(Job):
                                              timeout=self.timeout)
         messages = [x[1] for x in messages]
         return messages
+
+    # Job execution
+    def perform(self):  # noqa
+        """Invokes the job function with the job arguments."""
+        rq.job._job_stack.push(self.id)
+        try:
+            self._result = self.func(*self.args, **self.kwargs)
+            self.ended_at = utcnow()
+        finally:
+            assert self.id == rq.job._job_stack.pop()
+        return self._result
 
 class KitchenSinkRedisQueue(Queue):
     job_class = KitchenSinkJob
@@ -182,47 +205,59 @@ class KitchenSinkRedisQueue(Queue):
 class KitchenSinkWorker(Worker):
     job_class = KitchenSinkJob
     queue_class = KitchenSinkRedisQueue
-    def work(self, burst=False):
-        """Starts the work loop.
 
-        Pops and performs all jobs on the current list of queues.  When all
-        queues are empty, block and wait for new jobs to arrive on any of the
-        queues, unless `burst` mode is enabled.
-
-        The return value indicates whether any jobs were processed.
+    def perform_job(self, job):
+        """Performs the actual work of a job.  Will/should only be called
+        inside the work horse's process.
         """
-        self._install_signal_handlers()
 
-        did_perform_work = False
-        self.register_birth()
-        self.set_state('starting')
-        try:
-            while True:
-                if self.stopped:
-                    self.log.info('Stopping on request.')
-                    break
-                timeout = None if burst else max(1, self.default_worker_ttl - 60)
-                try:
-                    result = self.dequeue_job_and_maintain_ttl(timeout)
-                    if result is None:
-                        break
-                except StopRequested:
-                    break
+        self.set_state('busy')
+        self.set_current_job_id(job.id)
+        self.heartbeat((job.timeout or 180) + 60)
 
-                job, queue = result
+        self.procline('Processing %s from %s since %s' % (
+            job.func_name,
+            job.origin, time.time()))
+        with self.connection._pipeline() as pipeline:
+            try:
+                job.set_status(Status.STARTED)
                 job.push_status()
-                self.execute_job(job)
-                job.push_status()
-                self.heartbeat()
 
-                if job.get_status() == Status.FINISHED:
-                    queue.enqueue_dependents(job)
+                with self.death_penalty_class(job.timeout or self.queue_class.DEFAULT_TIMEOUT):
+                    rv = job.perform()
+                # Pickle the result in the same try-except block since we need to
+                # use the same exc handling when pickling fails
+                job._result = rv
 
-                did_perform_work = True
-        finally:
-            if not self.is_horse:
-                self.register_death()
-        return did_perform_work
+                self.set_current_job_id(None, pipeline=pipeline)
+
+                result_ttl = job.get_ttl(self.default_result_ttl)
+                job._status = Status.FINISHED
+                if result_ttl != 0:
+                    job.save(pipeline=pipeline)
+                job.cleanup(result_ttl, pipeline=pipeline)
+                job.push_status(status=Status.FINISHED, pipeline=pipeline)
+                pipeline.execute()
+
+            except Exception:
+                # Use the public setter here, to immediately update Redis
+                job.set_status(Status.FAILED)
+                self.handle_exception(job, *sys.exc_info())
+                return False
+
+        if rv is None:
+            self.log.info('Job OK')
+        else:
+            self.log.info('Job OK, result = %s' % rv)
+
+        if result_ttl == 0:
+            self.log.info('Result discarded immediately.')
+        elif result_ttl > 0:
+            self.log.info('Result is kept for %d seconds.' % result_ttl)
+        else:
+            self.log.warning('Result will never expire, clean up result key manually.')
+
+        return True
 
 def get_current_job(connection=None):
     """Returns the Job instance that is currently being executed.  If this

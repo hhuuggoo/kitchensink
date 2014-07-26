@@ -46,6 +46,7 @@ class TaskQueue(object):
         with Connection(self.conn):
             jobs = [KitchenSinkJob(job_id) for job_id in job_ids]
         statuses = [job.get_status() for job in jobs]
+        print ('****STATUSES', statuses)
         if any([x in {Status.FINISHED, Status.FAILED} for x in statuses]):
             messages = pull_intermediate_results(self.conn, job_ids, timeout=0)
         else:
@@ -63,6 +64,9 @@ class TaskQueue(object):
             mdata['msgs'] = messages_by_job.get(job_id, [])
             metadata[job_id] = mdata
             if status == Status.FINISHED:
+                if job.return_value is None:
+                    pass
+                    #import pdb; pdb.set_trace()
                 results[job_id] = job.return_value
             elif status == Status.FAILED:
                 results[job_id] = job.exc_info

@@ -1,3 +1,4 @@
+from __future__ import print_function
 import time
 
 import six
@@ -98,7 +99,7 @@ class Client(object):
             msg_format, [metadata, data] = unpack_result(result.content)
             for msg in metadata.get('msgs', []):
                 if msg['type'] == 'status':
-                    print (msg)
+                    print (msg['status'])
                 else:
                     print (msg['msg'])
             if metadata['status'] == Status.FAILED:
@@ -126,9 +127,9 @@ class Client(object):
             for job_id, (metadata, data) in zip(to_query, metadata_data_pairs):
                 for msg in metadata.get('msgs', []):
                     if msg['type'] == 'status':
-                        print (msg)
+                        print (job_id, msg['status'])
                     else:
-                        print (msg['msg'])
+                        print (job_id, msg['msg'])
                 if metadata['status'] == Status.FAILED:
                     for job_id in to_query:
                         self.cancel(job_id)
