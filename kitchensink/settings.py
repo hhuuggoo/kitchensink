@@ -57,8 +57,8 @@ def setup_server(_redis_conn, _datadir, _host_url, _catalog):
     redis_conn = _redis_conn
 
 def setup_client(_rpc_url):
-    if not rpc_url.endswith("/"):
-        rpc_url += "/"
+    if not _rpc_url.endswith("/"):
+        _rpc_url += "/"
     global rpc_url
     global data_rpc_url
     rpc_url = _rpc_url
