@@ -1,93 +1,121 @@
 ### Kitchen Sink
 
-python rpc made nice for interactive use
+Started to build an RPC server, ended up throwing in everything but the kitchen sink
 
 The goal of this project is to make RPC easy to use - especially for people doing interactive work.  Here are the core features
-
-- pluggable authentication
 - passing standard out/ std err back to the client
 - passing exceptions back to the client
-- supporting http and zeromq
-- supporting json, with pointers to remote data which can be queried via more efficient means
-- option to pass back a pointer to the data, so that it can be retrieved directly from where it is computed
-- or left on the server if you want to use it as the input to another computation
-  - you can imagine computing a large array, and then calling a function to slice the first 10 rows and return that
-- all jobs will be dispatched into a task queue
-- the task queue will be implemented in redis (for production) or shelve (for development)
-- upon connecting a client to the server, the client will be able to retrieve all functions and docstrings so that users can view them interactively
+- http support for transport
+- pluggable serialiation (json/dill/pickle/cloudpickle)
+- support for remote data
+- asynchronous and synchronous calls
+- Currently supports both arbitrary function execution (pickled from the client),
+  as well as named/registered functions on the server, which can be called
+  by strings
+- Support for banning arbitrary functions, and only executing registered functions
+  (not implemented yet, but easy)
 
-### Configuration
-- each RPC server will be configured via python dicts.
+### Quickstart
+To get started, you only need one server.
+
+`python -m kitchensink.scripts.start --datadir /tmp/data1 --num-workers 2`
+
+That command will auto-start a redis instance for you.  For a production deployment,
+you should start your own server.  Then on each box, start a node with the following
+command
+
+`python -m kitchensink.scripts.start  --datadir /tmp/data2 --no-redis --node-url=http://localhost:6324/ --num-workers 2 --redis-connection"tcp://localhost:6379?db=9`
+
+Here, the `--no-redis` option tells the process not to autostart a redis instance,
+And the redis connection information is passed in via the command line
+
+In general configuration is simple - each node only needs to know it's URL, the port
+it should listen on (or it can infer this from the URL), the data directory, and
+the address of the redis instance
+
+### Work remotely as you would locally
+Kitchen sink aims to make remote cluster work as easy as working on your laptop.  For ease of debugging, anything a remote function prints or logged, is redirected to your terminal.  We plan to support turning this off if you're running a large number of jobs, for example, but currently that is not implemented (But easy to do so)
 
 ```
-server = IPyRPC()
-server.config({
-  '*_json' : {'input_serialization' : json,
-              'output_serialization' : json,
-              'return_pointer' : False},
-  '*_python' : {'input_serialization' : ipyrpc_binary,
-                'output_seriazliation' : ipyrpc_binary,
-                'return_pointer' : True}
-})
-server.register('compute_value_json', myfunction)
-server.resgiter('compute_value_python', myfunction2)
-server.serve_forever(host=0.0.0.0, port=7777)
-```
+### Asynchronous execution
 
-The configuration will be expressed in globs, which will map up to registered functions.  Authentication functions can also be specified there.  the auth functions will be passed the function name, and the function arguments
+The following code will execute a remote function
 
 
-### Pointers
+from kitchensink.clients.http import Client
+c = Client("http://localhost:6323/", rpc_name='test')
+import numpy as np
+def test_func2(x, y):
+    return np.dot(x, y)
+jid = c.call(test_func2, np.array([1,2,3,4,5]), np.array([1,2,3,4,5]))
+c.result(jid)
 
 ```
-We can return a pointer to the object as such:
-{'type' : 'ipyrpc_data_pointer'
- 'host' : host,
- 'protocol' : http or zmq,
- 'path' : path,
- 'port' : port,
- 'secret_key' : secret_key
- }
+
+
+By default, all functions are executed asynchronously in a task queue.  You can execute
+functions instantly on the web server if you want to - you can do this if you
+know that the function is very fast, and won't bog down the webserver
+
+```
+result = c.call(test_func2, np.array([1,2,3,4,5]), np.array([1,2,3,4,5]), _async=False)
 ```
 
-### Long running Queues
 
-We will implement a long running queue in redis/shelve.  The RPC server will route standard out and results back to the client (or pointers to the results)
+### Remote Data Pointers
 
-### Process Model
-3 Components
-- DataServer runs on each node, serves up server side data.  Each host should have one
-- RPC Server pushes tasks onto redis, gateway for clients to communicate.  We could possibly combine this with the data server, but I'm not sure if that's a bad idea or not
-- workers - workers pull tasks off of redis and execute them
-  - workers can be spun up for different queues
-  - workers will prioritize tasks based on data locality
-  - workers can either complete the request in process, or fork a process
-  - If the user wants to use a custom environment, We spin up workers for them which expire when their session closes
-- data locality - when a job is queued, the size of the data it needs on each host is aggregated.  If the server side data is small,
-  then we don't care, and we route the job to the central queue.  Otherwise the job has a list of hosts that can handle it
-- There are named collections of hosts - these can be used to push out data.  there is also a job queue per named-set
+The kitchen sink system supports server side data.
+
+```
+from kitchensink import settings
+from kitchensink.clients.http import Client
+from kitchensink.data import RemoteData
+
+settings.setup_client("http://localhost:6323/")
+c = Client(settings.rpc_url)
+
+a = RemoteData(obj=dataframe1)
+b = RemoteData(obj=dataframe2)
+a.save()
+b.save()
+
+def test_func(a, b):
+    result = a.obj() + b.obj()
+    result = RemoteData(obj=result)
+    result.save()
+    return result
+
+c = Client("http://localhost:6324/", rpc_name='test')
+jid = c.call(test_func, a, b)
+result = c.async_result(jid)
+
+```
+The remote data object is small object, which can either represent a local or a
+global resource.  If you initialize it with either an object or a local file path,
+you can save it, which will push it to the server.  Or, an object on the server
+can be referenced via a data_url, and then accessed
+
+```
+a = RemoteData(data_url="mylarge/dataset")
+jid = c.call(lambda data : data.obj().head(10))
+c.result(jid)
+
+```
+
+A remote data object also has a pipeline function, which will stream the data to all nodes in the cluster
 
 ### Data Model
-#### Server Side Data
-  - The idea would be that server side data would be replaced with blaze array server and catalogue in the future, with the exception of non-array data which would still be stored in the KitchenSink storage mechanism
-  - Data is stored on disk in some directory, organized by user, with UUID filenames
-  - The metadata for the data includes key, tags, type, connection information(hosts, ports, protocols), and size.
-    - key is the primary key of the piece of data.  Will be a UUID
-    - data is immutable with the exception of deletion
-    - you don't get consistency guarantees with deletion
-    - Serverside Data is stored in the following mechanism
-      - There is a central redis string for each piece of data that keeps insertion date, and size of the data
-      - There is a redis list for each piece of data that has all the connection information for where the data can be retrieved
-      - size is denormalized into the connection information
-      - There is a redis set for each dataset that contains all the tags
-      - There is also a redis set for each tag that contains all the datasets
-    -  Accessing a piece of data by key is a matter of retrieving connection information from the redis list, and hitting that host
-    -  Searching data in redis involves possibly iterating through keys of the tag database, depending on the kind of search you
-       want to do
-#### Task Queue
-  - Each job is stored as a hash set, with keyed off of job id
-  - Jobs are added to queues which are redis lists, and can be popped off
-  - For data locality, we compute which hosts can process the job based on the amount of data the job needs which resides on that host.
-  - We then resolve that into N queues, attempting to use named queues to minimize the number of queues
-  - The job is added to each queue (so yes, the job may be enqueued twice)
-  - when jobs are popped, we do a final check using redis setnx to ensure that no other worker has claimed the job
+
+Remote data are just stored as files on the file system.  The local path of the file
+on disk relative to the nodes data directory, is the data url.  In redis we store
+some metadata about the file (just file size for now), and which hosts have it locally.
+
+Support for global data (via NFS or S3) is not yet implemented, and might not ever be.
+Because if you have global data, you don't need to use the remote data infrastructure, you might as well just turn it off.
+
+We support very simple data locality.  Whenever a function is executed, which is either using remote data objects in the input arguments (we search function args and kwargs, but not very deeply)  We compute how much data needs to be transfered to each node.  All nodes are sorted to minimize data transfer.   There is also a threshold (currently, 200mb) where we will not allow a task to run on a given node.  The task is queued and in order of priority (based on the data transfer we computed) and the first node that picks it up gets it
+
+### Future Work
+
+- Support for multiple anaconda environments on the cluster
+- Support for in memory data (so you can have a remote source loaded into memory, and then all jobs on that node can access it from memory, rather than reading it off of disk)

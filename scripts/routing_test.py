@@ -12,7 +12,7 @@ import dill
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("requests.packages.urllib3.connectionpool").setLevel(logging.WARNING)
 settings.setup_client("http://localhost:6323/")
-c = Client("http://localhost:6323/", rpc_name='test')
+c = Client("http://localhost:6323/", rpc_name='default')
 def test_func(a, b, desired_host=None):
     from kitchensink import settings
     print desired_host, settings.host_url

@@ -4,6 +4,7 @@ import os
 import sys
 import logging
 import time
+import urlparse
 
 from redis.exceptions import ConnectionError
 
@@ -35,7 +36,7 @@ def parser():
                    action="store_true")
     p.add_argument('--node-port',
                    help="port for the main worker node of the RPC Server",
-                   default=6323)
+                   default=None)
     p.add_argument('--num-workers',
                    help="number of workers",
                    type=int,
@@ -50,11 +51,11 @@ def parser():
     )
 
     #mandatory
-    p.add_argument('--module',
-                   help='module with rpc functions',
-    )
     p.add_argument('--datadir',
                    help='data directory',
+    )
+    p.add_argument('--module',
+                   help='(optional) module with rpc functions',
     )
     return p
 
@@ -70,6 +71,9 @@ def run(redis_connection, node_url, node_port,
         num_workers, no_redis, queue, module, datadir):
     register_shutdown()
     redis_connection_info = parse_redis_connection(redis_connection)
+    if node_port is None:
+        node_port = int(urlparse.urlparse(node_url).netloc.split(":")[-1])
+    print ("**port", node_port)
     pid_file = "ks-%s.pid" % node_port
     if not no_redis:
         print ("Starting redis on %s" % redis_connection)
@@ -93,10 +97,12 @@ def run(redis_connection, node_url, node_port,
         cmd.extend(['--queue', q])
     for c in range(num_workers):
         ManagedProcess(cmd, 'worker-%s' % c, pid_file)
-
-    mod = __import__(module)
     data_rpc = make_rpc()
     register_rpc(data_rpc, 'data')
+    default_rpc = make_rpc()
+    register_rpc(default_rpc, 'default')
+    if module:
+        mod = __import__(module)
     runserver()
     close_all()
 

@@ -43,6 +43,7 @@ def run():
     rpcblueprint.heartbeat_thread.start()
     atexit.register(close)
     app.run(host='0.0.0.0', port=app.port, use_reloader=False)
+    close()
 
 class HeartbeatThread(Thread):
     def run(self):
