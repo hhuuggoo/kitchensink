@@ -74,7 +74,7 @@ def get_data(path):
         if not exists(local_path):
             data = b""
         else:
-            with open(local_path, "r") as f:
+            with open(local_path, "rb") as f:
                 f.seek(offset)
                 data = f.read(length)
         logger.info("sending %s of %s", len(data), path)
