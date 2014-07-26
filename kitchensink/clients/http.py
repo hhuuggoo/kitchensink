@@ -129,7 +129,7 @@ class Client(object):
                     if msg['type'] == 'status':
                         print (job_id, msg['status'])
                     else:
-                        print (job_id, msg['msg'])
+                        print (msg['msg'])
                 if metadata['status'] == Status.FAILED:
                     for job_id in to_query:
                         self.cancel(job_id)
