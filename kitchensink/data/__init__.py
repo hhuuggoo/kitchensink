@@ -308,7 +308,7 @@ class RemoteData(object):
                 f = cStringIO.StringIO()
                 f.write(self._raw)
             elif self._local_path:
-                f = open(self._local_path)
+                f = open(self._local_path, "rb")
             else:
                 f = cStringIO.StringIO()
                 data = serializer(self.fmt)(self._obj)
