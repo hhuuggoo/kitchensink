@@ -322,12 +322,16 @@ class RemoteData(object):
             raise e
 
     def pipeline(self, existing=False, url=None, prefix=""):
+        if existing:
+            return self.pipeline_existing()
         if self.data_url and not existing:
             raise KitchenSinkError, "Dataset is already created, cannot be modified"
-        if url is None:
-            self.data_url = urljoin(prefix, str(uuid.uuid4()))
-        else:
-            self.data_url = url
+        if not self.data_url:
+            if url is None:
+                self.data_url = urljoin(prefix,
+                                        str(uuid.uuid4()))
+            else:
+                self.data_url = url
         try:
             if self._raw:
                 f = cStringIO.StringIO()
@@ -358,8 +362,31 @@ class RemoteData(object):
                                 _queue_name=hosts[idx - 1],
                 )
                 calls.append(result)
-            self._put(f)
+            if not existing:
+                self._put(f)
             print c.bulk_async_result(calls)
         except Exception as e:
             f.close()
+            raise e
+    def pipeline_existing(self):
+        try:
+            c = self.client()
+            ## many redundant calls here
+            host_info, data_info = c.call('get_info', self.data_url,
+                                          _rpc_name='data',
+                                          _async=False)
+            length = data_info['size']
+            hosts = c.call('hosts', _async=False)
+            host = c.pick_host(self.data_url)
+            hosts = [x for x in hosts if x != host]
+            hosts.append(host)
+            print hosts
+            calls = []
+            for idx in range(1, len(hosts)):
+                result = c.call('chunked_copy', self.data_url, length, hosts[idx],
+                                _queue_name=hosts[idx - 1],
+                )
+                calls.append(result)
+            print c.bulk_async_result(calls)
+        except Exception as e:
             raise e

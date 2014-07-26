@@ -76,6 +76,8 @@ def run_args(args):
 
 def run(redis_connection, node_url, node_port,
         num_workers, no_redis, queue, module, datadir):
+    if not node_url.endswith("/"):
+        node_url += "/"
     datadir = abspath(datadir)
     register_shutdown()
     redis_connection_info = parse_redis_connection(redis_connection)
