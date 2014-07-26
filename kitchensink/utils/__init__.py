@@ -1,6 +1,6 @@
 from six.moves.urllib.parse import urlparse, parse_qs, urlencode
 def parse_redis_connection(url):
-    split = urlparse("tcp://localhost:6379?db=9")
+    split = urlparse(url)
     protocol = split.scheme
     netloc = split.netloc
     path = split.path
