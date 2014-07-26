@@ -33,6 +33,7 @@ In general configuration is simple - each node only needs to know it's URL, the 
 it should listen on (or it can infer this from the URL), the data directory, and
 the address of the redis instance
 
+
 ### Work remotely as you would locally
 Kitchen sink aims to make remote cluster work as easy as working on your laptop.  For ease of debugging, anything a remote function prints or logged, is redirected to your terminal.  We plan to support turning this off if you're running a large number of jobs, for example, but currently that is not implemented (But easy to do so)
 
