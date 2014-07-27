@@ -3,7 +3,7 @@ import datetime as dt
 import posixpath
 import logging
 import tempfile
-from os import stat, makedirs
+from os import stat, makedirs, remove
 import random
 import uuid
 import cStringIO
@@ -106,6 +106,17 @@ class Catalog(object):
             self.set_metadata(url, size)
         self.add(file_path, url)
         return file_path
+
+    def delete(self, url):
+        start_key = self.starting_key(url)
+        path_key = self.path_key(url)
+        data_key = self.data_key(url)
+        self.conn.hdel(path_key, self.host_url)
+        self.conn.hdel(start_key, self.host_url)
+        if not self.conn.exists(path_key):
+            self.conn.delete(data_key)
+        file_path = self.setup_file_path_from_url(url)
+        remove(file_path)
 
     def write_chunked(self, iterator, url, is_new=True):
         file_path = self.setup_file_path_from_url(url)
@@ -346,47 +357,36 @@ class RemoteData(object):
                 f.write(data)
                 length = len(data)
             c = self.client()
-            hosts = c.call('hosts', _async=False)
-            if existing:
-                # remove the host that has the data from the chain
-                # and add it to the end of the pipeline
-                host = c.pick_host(self.data_url)
-            else:
-                host = self.rpc_url
-            hosts = [x for x in hosts if x != host]
-            hosts.append(host)
-            print hosts
-            calls = []
-            for idx in range(1, len(hosts)):
-                result = c.call('chunked_copy', self.data_url, length, hosts[idx],
-                                _queue_name=hosts[idx - 1],
-                )
-                calls.append(result)
-            if not existing:
-                self._put(f)
+            host = self.rpc_url
+            calls = self._pipeline_existing(host, length=length)
+            self._put(f)
             print c.bulk_async_result(calls)
         except Exception as e:
             f.close()
             raise e
-    def pipeline_existing(self):
-        try:
-            c = self.client()
-            ## many redundant calls here
-            host_info, data_info = c.call('get_info', self.data_url,
-                                          _rpc_name='data',
-                                          _async=False)
+
+    def _pipeline_existing(self, starting_host, length=None):
+        c = self.client()
+        host_info, data_info = c.call('get_info', self.data_url,
+                                      _rpc_name='data',
+                                      _async=False)
+        if length is None:
             length = data_info['size']
-            hosts = c.call('hosts', _async=False)
-            host = c.pick_host(self.data_url)
-            hosts = [x for x in hosts if x != host]
-            hosts.append(host)
-            print hosts
-            calls = []
-            for idx in range(1, len(hosts)):
-                result = c.call('chunked_copy', self.data_url, length, hosts[idx],
-                                _queue_name=hosts[idx - 1],
-                )
-                calls.append(result)
-            print c.bulk_async_result(calls)
-        except Exception as e:
-            raise e
+        hosts = c.call('hosts', _async=False)
+        hosts = [x for x in hosts if x not in host_info]
+        hosts = [x for x in hosts if x != starting_host]
+        hosts.append(starting_host)
+        print hosts
+        calls = []
+        for idx in range(1, len(hosts)):
+            result = c.call('chunked_copy', self.data_url, length, hosts[idx],
+                            _queue_name=hosts[idx - 1],
+            )
+            calls.append(result)
+        return calls
+
+    def pipeline_existing(self):
+        c = self.client()
+        host = c.pick_host(self.data_url)
+        calls = self._pipeline_existing(host)
+        print c.bulk_async_result(calls)

@@ -22,4 +22,11 @@ python -m kitchensink.scripts.start  --datadir /tmp/data3 --no-redis --node-url=
 """
 df = pd.DataFrame({'a' : np.arange(100000)})
 remote = RemoteData(obj=df)
-remote.pipeline(prefix="testdata")
+#remote.pipeline(prefix="testdata")
+remote = RemoteData(obj=df)
+remote.save()
+remote.pipeline_existing()
+print c.call('get_info', remote.data_url, _rpc_name='data', _async=False)
+
+c.reduce_data_hosts(remote.data_url, number=1)
+print c.call('get_info', remote.data_url, _rpc_name='data', _async=False)

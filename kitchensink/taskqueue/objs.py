@@ -235,8 +235,8 @@ class KitchenSinkWorker(Worker):
 
             except Exception:
                 # Use the public setter here, to immediately update Redis
-                job.set_status(Status.FAILED)
                 self.handle_exception(job, *sys.exc_info())
+                job.set_status(Status.FAILED)
                 job.push_status()
                 return False
         job.set_status(Status.FINISHED)

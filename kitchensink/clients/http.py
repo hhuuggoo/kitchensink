@@ -109,7 +109,7 @@ class Client(object):
             elif metadata['status'] == Status.STARTED:
                 pass
 
-    def bulk_async_result(self, job_ids, timeout=60.0):
+    def bulk_async_result(self, job_ids, timeout=600.0):
         to_query = job_ids
         raw_url = self.url + "rpc/bulkstatus/"
         results = {}
@@ -177,3 +177,22 @@ class Client(object):
         return self.async_result(self.call('search_path', pattern,
                                            _async=True,
                                            _rpc_name='data'))
+    def reduce_data_hosts(self, url, number=0):
+        host_info, data_info = self.call('get_info', url,
+                                         _rpc_name='data',
+                                         _async=False)
+        active_hosts = self.call('hosts', _async=False,
+                                 _rpc_name="data",
+                                 _no_route_data=True)
+        hosts = set(active_hosts).intersection(set(host_info.keys()))
+        jobs = []
+        if not len(hosts) > number:
+            print("%s hosts have data.  Not reducing" % len(hosts))
+            return
+        to_keep = set(list(hosts)[:number])
+        to_delete = hosts.difference(to_keep)
+        print ("**DELETE", to_delete)
+        for host in to_delete:
+            result = self.call('delete', url, _queue_name=host, _rpc_name='data')
+            jobs.append(result)
+        return self.bulk_async_result(jobs)

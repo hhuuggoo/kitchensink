@@ -21,6 +21,8 @@ def chunked_copy(url, length, host):
     iterator = settings.catalog.get_chunked_iterator(url, length, host)
     settings.catalog.write_chunked(iterator, url, is_new=False)
 
+def delete(url):
+    settings.catalog.delete(url)
 
 def make_rpc():
     rpc = RPC()
@@ -28,4 +30,5 @@ def make_rpc():
     rpc.register_function(search_path)
     rpc.register_function(hosts)
     rpc.register_function(chunked_copy)
+    rpc.register_function(delete)
     return rpc
