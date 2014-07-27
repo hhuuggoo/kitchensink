@@ -120,9 +120,9 @@ class Client(object):
                 break
             if len(to_query) == 0:
                 break
-            url = make_query_url(raw_url, {'job_ids' : ",".join(to_query)})
-            result = requests.get(url,
-                                  headers={'content-type' : 'application/octet-stream'})
+            result = requests.post(raw_url,
+                                   data={'job_ids' : ",".join(to_query)}
+                                   headers={'content-type' : 'application/json'})
             metadata_data_pairs = unpack_results(result.content)
             for job_id, (metadata, data) in zip(to_query, metadata_data_pairs):
                 for msg in metadata.get('msgs', []):
