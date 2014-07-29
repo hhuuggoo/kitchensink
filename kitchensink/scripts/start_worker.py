@@ -51,7 +51,7 @@ def run(redis_connection, node_url, queue, datadir):
         queues.append(node_queue)
         for q in queue:
             queues.append(KitchenSinkRedisQueue(q))
-            w = KitchenSinkWorker(queues)
+            w = KitchenSinkWorker(queues, default_result_ttl=86400)
     w.work(burst=False)
 
 def main():
