@@ -192,7 +192,8 @@ class Catalog(object):
                 stream = c._get_data(url).raw
                 retval = self.write(stream, url, is_new=False)
             finally:
-                if stream: stream.close()
+                if stream:
+                    stream.close()
             return retval
 
     def get_info(self, url):
@@ -276,7 +277,6 @@ class RemoteData(object):
                 name = tempfile.NamedTemporaryFile(prefix="ks-data-").name
                 with open(name, "w+") as f:
                     while True:
-                        import pdb; pdb.set_trace()
                         data = stream.read(settings.chunk_size)
                         if data:
                             f.write(data)

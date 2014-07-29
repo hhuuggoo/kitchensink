@@ -1,5 +1,6 @@
 from __future__ import print_function
 import time
+import random
 
 import six
 import requests
@@ -109,7 +110,7 @@ class Client(object):
             elif metadata['status'] == Status.STARTED:
                 pass
 
-    def bulk_async_result(self, job_ids, timeout=600.0):
+    def bulk_async_result(self, job_ids, timeout=6000.0):
         to_query = job_ids
         raw_url = self.url + "rpc/bulkstatus/"
         results = {}
@@ -177,7 +178,7 @@ class Client(object):
         return self.async_result(self.call('search_path', pattern,
                                            _async=True,
                                            _rpc_name='data'))
-    def reduce_data_hosts(self, url, number=0):
+    def reduce_data_hosts(self, url, number=0, remove_host=None):
         host_info, data_info = self.call('get_info', url,
                                          _rpc_name='data',
                                          _async=False)
@@ -189,10 +190,31 @@ class Client(object):
         if not len(hosts) > number:
             print("%s hosts have data.  Not reducing" % len(hosts))
             return
+        if remove_host and remove_host in hosts:
+            hosts = [x for x in hosts if x != remove_host]
+            hosts.append(remove_host)
         to_keep = set(list(hosts)[:number])
-        to_delete = hosts.difference(to_keep)
+        assert len(to_keep) == number
+        to_delete = set(hosts).difference(to_keep)
         print ("**DELETE", to_delete)
+        print ("**KEEP", to_keep)
         for host in to_delete:
             result = self.call('delete', url, _queue_name=host, _rpc_name='data')
             jobs.append(result)
         return self.bulk_async_result(jobs)
+
+    def move_data(self, url, length, from_host, to_host=None):
+        active_hosts = self.call('hosts', _async=False,
+                                 _rpc_name="data",
+                                 _no_route_data=True)
+        if to_host is None:
+            active_hosts = [x for x in active_hosts if x != from_host]
+            to_host = random.choice(active_hosts)
+        result = self.call('chunked_copy', url, length, from_host,
+                        _queue_name=to_host,
+        )
+        result = self.async_result(result)
+        print (result)
+        result = self.call('delete', url, _queue_name=from_host, _rpc_name='data')
+        result = self.async_result(result)
+        print (result)

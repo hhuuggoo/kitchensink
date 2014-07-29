@@ -142,6 +142,7 @@ class KitchenSinkJob(Job):
         return self._result
 
 class KitchenSinkRedisQueue(Queue):
+    DEFAULT_TIMEOUT = 86400
     job_class = KitchenSinkJob
     def enqueue_job(self, job, set_meta_data=True):
         """Enqueues a job for delayed execution.
