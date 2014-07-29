@@ -42,6 +42,7 @@ class Client(object):
     def call(self, func, *args, **kwargs):
         #TODO: check for serialized function
         #TODO: handle instance methods
+        print ("starting call", time.time())
         func_string = None
         if isinstance(func, six.string_types):
             func_string = func
@@ -62,6 +63,7 @@ class Client(object):
                 #strip off size information
                 queue_names = [x[0] for x in queue_names]
                 print (queue_names)
+                print ("finished routing", time.time())
             else:
                 queue_names = [self.queue_name]
         fmt = self.fmt
@@ -82,8 +84,10 @@ class Client(object):
 
         url = self.url + "rpc/call/%s/" % rpc_name
         msg = pack_rpc_call(metadata, data, fmt=self.fmt)
+        print ("enqueuing call", time.time())
         result = requests.post(url, data=msg,
                                headers={'content-type' : 'application/octet-stream'})
+        print ("finished enqueuing call", time.time())
         msg_format, [metadata, data] = unpack_result(result.content)
         if metadata['status'] == Status.FAILED:
             raise Exception, metadata['error']
@@ -117,6 +121,7 @@ class Client(object):
         st = time.time()
         while True:
             to_query = list(set(to_query).difference(set(results.keys())))
+            print ("WAITING ON %s" % len(to_query))
             if time.time() - st > timeout:
                 break
             if len(to_query) == 0:
@@ -178,7 +183,7 @@ class Client(object):
         return self.async_result(self.call('search_path', pattern,
                                            _async=True,
                                            _rpc_name='data'))
-    def reduce_data_hosts(self, url, number=0, remove_host=None):
+    def reduce_data_hosts(self, url, number=0, remove_host=None, async=False):
         host_info, data_info = self.call('get_info', url,
                                          _rpc_name='data',
                                          _async=False)
@@ -201,7 +206,10 @@ class Client(object):
         for host in to_delete:
             result = self.call('delete', url, _queue_name=host, _rpc_name='data')
             jobs.append(result)
-        return self.bulk_async_result(jobs)
+        if async:
+            return jobs
+        else:
+            return self.bulk_async_result(jobs)
 
     def move_data(self, url, length, from_host, to_host=None):
         active_hosts = self.call('hosts', _async=False,

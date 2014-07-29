@@ -181,6 +181,10 @@ class Catalog(object):
             yield data
 
     def get(self, url, host=None):
+        file_path = self.setup_file_path_from_url(url)
+        logger.warning("ALREADY HAVE %s, no need to retrieve" % file_path)
+        if exists(file_path):
+            return file_path
         hosts_info, data_info = self.get_info(url)
         if self.host_url in hosts_info:
             return hosts_info[self.host_url]
