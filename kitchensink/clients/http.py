@@ -23,6 +23,18 @@ class Client(object):
         self.rpc_name = rpc_name
         self.queue_name = queue_name
         self.data_threshold = 200000000 #200 megs
+        self.bulk = False
+
+    def bulk(self):
+        self.bulk = True
+        self.calls = []
+
+    def execute(self):
+        urls = set()
+        from ..data.routing  import inspect, route
+        for func, args, kwargs in self.calls:
+            urls.add(inspect(args, kwargs))
+        info = self.data_info(urls)
 
     def data_info(self, urls):
         results = {}
@@ -58,7 +70,10 @@ class Client(object):
             from ..data.routing  import inspect, route
             data_urls = inspect(args, kwargs)
             if data_urls:
-                active_hosts, infos = self.data_info(data_urls)
+                if '_data_infos' in kwargs:
+                    active_hosts, infos = kwargs.pop("_data_infos")
+                else:
+                    active_hosts, infos = self.data_info(data_urls)
                 queue_names = route(data_urls, active_hosts, infos, self.data_threshold)
                 #strip off size information
                 queue_names = [x[0] for x in queue_names]
