@@ -10,7 +10,10 @@ import cStringIO
 import time
 
 from six import string_types
-
+try:
+    import gevent
+except:
+    gevent = None
 from ..clients.http import Client
 from .. import settings
 from ..serialization import deserializer, serializer
@@ -171,20 +174,26 @@ class Catalog(object):
             data_read += len(data)
             logger.info ("read %s of %s from %s to %s" % (data_read, length,
                                                           host_url, settings.host_url))
+            if gevent:
+                gevent.sleep(0)
             if len(data) == 0:
                 time.sleep(1.0)
             yield data
 
-    def get(self, url, host=None, chunked_read=False):
+    def get(self, url, host=None):
         hosts_info, data_info = self.get_info(url)
         if self.host_url in hosts_info:
             return hosts_info[self.host_url]
         else:
-            if not chunked_read:
-                host = hosts_info.keys()[0]
-                c = Client(host, rpc_name='data', queue_name='data')
+            host = hosts_info.keys()[0]
+            c = Client(host, rpc_name='data', queue_name='data')
+            stream = None
+            try:
                 stream = c._get_data(url).raw
-            return self.write(stream, url, is_new=False)
+                retval = self.write(stream, url, is_new=False)
+            finally:
+                if stream: stream.close()
+            return retval
 
     def get_info(self, url):
 
@@ -263,14 +272,18 @@ class RemoteData(object):
             if isinstance(stream, string_types):
                 name = stream
                 return name
-            name = tempfile.NamedTemporaryFile(prefix="ks-data-").name
-            with open(name, "w+") as f:
-                while True:
-                    data = stream.read(settings.chunk_size)
-                    if data:
-                        f.write(data)
-                    else:
-                        break
+            try:
+                name = tempfile.NamedTemporaryFile(prefix="ks-data-").name
+                with open(name, "w+") as f:
+                    while True:
+                        import pdb; pdb.set_trace()
+                        data = stream.read(settings.chunk_size)
+                        if data:
+                            f.write(data)
+                        else:
+                            break
+            finally:
+                stream.close()
         self._local_path = name
         return name
 
@@ -290,7 +303,10 @@ class RemoteData(object):
                 with open(name, "r") as f:
                     raw = f.read()
             else:
-                raw = raw.read()
+                try:
+                    raw = raw.read()
+                finally:
+                    raw.close()
         self._raw = raw
         return raw
 

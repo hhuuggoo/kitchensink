@@ -2,12 +2,13 @@ import logging
 from os.path import exists
 import traceback
 
-from flask import request, current_app, jsonify, send_file
+from flask import request, current_app, jsonify
 from rq.job import Status
 
 from .app import rpcblueprint
 from ..serialization import pack_result, pack_results
 from .. import settings
+from ..utils import send_file
 
 logger = logging.getLogger(__name__)
 

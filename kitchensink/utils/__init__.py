@@ -1,4 +1,9 @@
 from six.moves.urllib.parse import urlparse, parse_qs, urlencode
+try:
+    import gevent
+except:
+    gevent = None
+
 def parse_redis_connection(url):
     split = urlparse(url)
     protocol = split.scheme
@@ -27,3 +32,19 @@ def update_dictionaries(*dictionaries):
     for d in dictionaries:
         result.update(d)
     return result
+
+def send_file(file_or_buffer):
+    from flask import Response
+    chunksize=10000
+    def generator():
+        with open(file_or_buffer, "rb") as f:
+            while True:
+                result = f.read(chunksize)
+                if not result:
+                    break
+                else:
+                    yield result
+                    if gevent:
+                        gevent.sleep(0)
+    return Response(generator(),
+                    mimetype='application/octet-stream')
