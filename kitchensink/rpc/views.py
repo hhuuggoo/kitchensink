@@ -70,7 +70,9 @@ def bulk_status():
     if timeout:
         timeout = int(timeout)
     metadata_data_pairs = rpcblueprint.task_queue.bulkstatus(job_ids, timeout=timeout)
-    fmt = [x[0]['result_fmt'] for x in metadata_data_pairs]
+    # hack, with actual results, result_fmt should be present
+    # otherwise for status we just use json
+    fmt = [x[0].get('result_fmt', 'json') for x in metadata_data_pairs]
     result = pack_results(metadata_data_pairs, fmt=fmt)
     return current_app.response_class(response=result,
                                       status=200,
