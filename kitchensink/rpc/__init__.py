@@ -3,6 +3,7 @@ import sys
 import cStringIO
 import threading
 import logging
+import time
 
 from rq.job import Status
 from rq import Queue, Connection
@@ -146,15 +147,19 @@ class RPC(object):
 #     return wrapper
 import tempfile
 class OutputThread(threading.Thread):
-    interval = 1
+    interval = 0.1
     def run(self):
         with open(self.filename, "r") as toread:
             self.buf = ""
             while not self.kill:
                 self.output(toread)
+
             self.output(toread)
     def output(self, toread):
-        self.buf += toread.read()
+        read = toread.read()
+        if not read:
+            time.sleep(self.interval)
+        self.buf += read
         msgs = self.buf.split("\n")[:-1]
         for msg in msgs:
             self.job.push_stdout(msg)
