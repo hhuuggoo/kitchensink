@@ -1,4 +1,6 @@
 from six.moves.urllib.parse import urlparse, parse_qs, urlencode
+from logging.config import dictConfig
+import logging
 try:
     import gevent
 except:
@@ -48,3 +50,28 @@ def send_file(file_or_buffer):
                         gevent.sleep(0)
     return Response(generator(),
                     mimetype='application/octet-stream')
+def setup_loghandlers(level=None):
+    if not logging._handlers:
+        dictConfig({
+            'version': 1,
+            'disable_existing_loggers': False,
+
+            'formatters': {
+                'console': {
+                    'format': "%(asctime)-15s %(name)s:%(lineno)s:%(message)s"
+                },
+            },
+
+            'handlers': {
+                'console': {
+                    'level': 'DEBUG',
+                    'class': 'logging.StreamHandler',
+                    'formatter': 'console',
+                },
+            },
+
+            'root': {
+                'handlers': ['console'],
+                'level': level or 'INFO',
+            }
+        })

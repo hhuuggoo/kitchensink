@@ -34,7 +34,10 @@ class Client(object):
         from ..data.routing  import inspect, route
         for func, args, kwargs in self.calls:
             urls.update(inspect(args, kwargs))
-        active_hosts, data_info = self.data_info(urls)
+        if urls:
+            active_hosts, data_info = self.data_info(urls)
+        else:
+            active_hosts, data_info = None, None
         calls = self.calls
         self.calls = []
         results = self._bulk_call(calls, active_hosts, data_info)
@@ -53,7 +56,7 @@ class Client(object):
         active_hosts = kwargs.pop('_active_hosts', None)
         data_info = kwargs.pop('_data_info', None)
         no_route_data = kwargs.pop('_no_route_data', False)
-
+        intermediate_results = kwargs.pop('_intermediate_results', True)
         func_string = None
         if isinstance(func, six.string_types):
             func_string = func
@@ -83,6 +86,7 @@ class Client(object):
         auth_string = ""
 
         metadata = dict(
+            intermediate_results=intermediate_results,
             func_string=func_string,
             result_fmt=fmt,
             queue_names=queue_names,

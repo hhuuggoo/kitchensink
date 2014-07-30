@@ -5,17 +5,18 @@ import random
 import signal
 import os
 import sys
+import traceback
 
 from rq import Queue, Worker
 from rq.job import Job, UNEVALUATED, Status, NoSuchJobError
 import rq.job
 from rq.worker import StopRequested
-from rq.logutils import setup_loghandlers
 from rq.utils import utcnow
 from rq.compat import total_ordering, string_types, as_text
 import dill
 
 from ..serialization import serializer, deserializer
+from ..utils import setup_loghandlers
 import logging
 logger = logging.getLogger(__name__)
 
@@ -85,6 +86,16 @@ def pull_intermediate_results(connection, keys, timeout=5):
     return messages
 
 class KitchenSinkJob(Job):
+    def refresh(self):
+        from flask import request
+        try:
+            logger.info("URL %s", request.url)
+        except RuntimeError:
+            pass
+        traceback.print_stack()
+        logger.info("REFRESH START")
+        super(KitchenSinkJob, self).refresh()
+        logger.info("REFRESH END")
     @property
     def intermediate_results_key(self):
         return self.key + ":" + "intermediate_results"
@@ -180,7 +191,9 @@ class KitchenSinkRedisQueue(Queue):
         See the documentation of cls.lpop for the interpretation of timeout.
         """
         queue_keys = [q.key for q in queues]
+        logger.info("DEQUEUE START")
         result = cls.lpop(queue_keys, timeout, connection=connection)
+        logger.info("DEQUEUED")
         if result is None:
             return None
         queue_key, job_id = map(as_text, result)
@@ -194,7 +207,9 @@ class KitchenSinkRedisQueue(Queue):
             return cls.dequeue_any(queues, timeout, connection=connection)
         queue = cls.from_queue_key(queue_key, connection=connection)
         try:
+            logger.info("FETCHING")
             job = cls.job_class.fetch(job_id, connection=connection)
+            logger.info("FETCHED")
         except NoSuchJobError:
             # Silently pass on jobs that don't exist (anymore),
             # and continue by reinvoking the same function recursively
@@ -210,12 +225,15 @@ class KitchenSinkRedisQueue(Queue):
 class KitchenSinkWorker(Worker):
     job_class = KitchenSinkJob
     queue_class = KitchenSinkRedisQueue
+    def work(self, burst=False):
+        setup_loghandlers()
+        super(KitchenSinkWorker, self).work(burst=burst)
 
     def perform_job(self, job):
         """Performs the actual work of a job.  Will/should only be called
         inside the work horse's process.
         """
-
+        self.log.info("**************PERFORM")
         self.set_state('busy')
         self.set_current_job_id(job.id)
         self.heartbeat((job.timeout or 180) + 60)

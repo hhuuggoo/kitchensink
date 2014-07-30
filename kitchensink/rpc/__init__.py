@@ -59,8 +59,9 @@ class RPC(object):
         self.task_queue = queue
 
     def call(self, msg):
+        logger.info("CALL")
         metadata = unpack_rpc_metadata(msg)
-
+        logger.info("METADATA %s", metadata)
         #metadata
         result_fmt = metadata.get('result_fmt', 'cloudpickle')
         queue_names = metadata.get('queue_names', ['default'])
@@ -147,7 +148,7 @@ class RPC(object):
 #     return wrapper
 import tempfile
 class OutputThread(threading.Thread):
-    interval = 0.1
+    interval = 0.001
     def run(self):
         with open(self.filename, "r") as toread:
             self.buf = ""
@@ -167,11 +168,13 @@ class OutputThread(threading.Thread):
 
 
 def _execute_msg(msg):
+    logger.info("EXECUTING")
     msg_format, metadata, data = unpack_rpc_call(msg)
     func = data['func']
     args = data.get('args', [])
     kwargs = data.get('kwargs', {})
     result = func(*args, **kwargs)
+    logger.info("DONE EXECUTING")
     return result
 
 def patch_loggers(output):

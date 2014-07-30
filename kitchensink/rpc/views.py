@@ -25,15 +25,18 @@ def make_json(jsonstring, status_code=200, headers={}):
 ### job endpoints
 @rpcblueprint.route("/call/<rpcname>/", methods=['POST'])
 def call(rpcname):
+    logger.info("POST, call")
     msg = request.data
     rpc = rpcblueprint.rpcs[rpcname]
     result = rpc.call(msg)
+    logger.info("POST, done call")
     return current_app.response_class(response=result,
                                       status=200,
                                       mimetype='application/octet-sream')
 
 @rpcblueprint.route("/bulkcall/", methods=['POST'])
 def bulkcall():
+    logger.info("BULKPOST, call")
     msg = request.data
     msg_format, messages = unpack_msg(msg, override_fmt='raw') # strip of format
     calls = [(messages[i], messages[i+1]) for i in range(0, len(messages), 2)]
@@ -43,6 +46,7 @@ def bulkcall():
         result = rpc.call(msg)
         results.append(result)
     result = pack_msg(*results, fmt=['raw' for x in range(len(results))])
+    logger.info("DONE BULKPOST, call")
     return current_app.response_class(response=result,
                                       status=200,
                                       mimetype='application/octet-sream')

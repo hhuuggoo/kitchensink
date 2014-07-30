@@ -10,6 +10,7 @@ import os
 from os.path import abspath
 import sys
 import logging
+
 import time
 import urlparse
 
@@ -23,7 +24,7 @@ from kitchensink.rpc.server import make_app, run as runserver, register_rpc
 from kitchensink.data.datarpc import make_rpc
 from kitchensink.data import Catalog
 import kitchensink.settings as settings
-
+FORMAT = "%(asctime)-15s %(pathname)s:%(message)s"
 comments = \
 """
 kitchen sink RPC Server
@@ -94,7 +95,8 @@ def run(redis_connection, node_url, node_port,
            '--redis-connection', redis_connection,
            '--datadir', datadir,
     ]
-    make_app(redis_connection_info, node_port, node_url, datadir)
+    app = make_app(redis_connection_info, node_port, node_url, datadir)
+    app.debug_log_format = FORMAT
     for c in range(10):
         try:
             result = settings.redis_conn.ping()
@@ -128,7 +130,10 @@ def main():
         helper()
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
+
+
+    logging.basicConfig(level=logging.DEBUG, format=FORMAT)
     logging.getLogger("requests.packages.urllib3.connectionpool").setLevel(logging.WARNING)
+
     #logging.getLogger('rq.worker').level = logging.WARNING
     main()
