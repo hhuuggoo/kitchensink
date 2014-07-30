@@ -28,6 +28,7 @@ def empty(result):
     return False
 
 def nonblock_pop(connection, keys, timeout=5.0):
+    logger.info("nonblock pop")
     for k in keys:
         msg = connection.lpop(k)
         if msg:
@@ -36,6 +37,7 @@ def nonblock_pop(connection, keys, timeout=5.0):
     return None
 
 def pop(connection, keys, timeout=5.0):
+    logger.info("pop")
     msg = connection.blpop(keys, timeout=timeout)
     if msg is None:
         return None
