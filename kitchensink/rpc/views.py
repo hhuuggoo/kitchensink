@@ -6,7 +6,7 @@ from flask import request, current_app, jsonify
 from rq.job import Status
 
 from .app import rpcblueprint
-from ..serialization import pack_result, pack_results
+from ..serialization import pack_result, pack_results, unpack_msg, pack_msg
 from .. import settings
 from ..utils import send_file
 
@@ -28,6 +28,21 @@ def call(rpcname):
     msg = request.data
     rpc = rpcblueprint.rpcs[rpcname]
     result = rpc.call(msg)
+    return current_app.response_class(response=result,
+                                      status=200,
+                                      mimetype='application/octet-sream')
+
+@rpcblueprint.route("/bulkcall/", methods=['POST'])
+def bulkcall():
+    msg = request.data
+    msg_format, messages = unpack_msg(msg, override_fmt='raw') # strip of format
+    calls = [(messages[i], messages[i+1]) for i in range(0, len(messages), 2)]
+    results = []
+    for rpcname, msg in calls:
+        rpc = rpcblueprint.rpcs[rpcname]
+        result = rpc.call(msg)
+        results.append(result)
+    result = pack_msg(*results, fmt=['raw' for x in range(len(results))])
     return current_app.response_class(response=result,
                                       status=200,
                                       mimetype='application/octet-sream')

@@ -12,6 +12,17 @@ def get_info(path):
     host_info, data_info = settings.catalog.get_info(path)
     return host_info, data_info
 
+def get_info_bulk(urls):
+    results = {}
+    active_hosts = hosts()
+    for u in urls:
+        host_info, data_info = get_info(u)
+        for host in host_info.keys():
+            if host not in active_hosts:
+                host_info.pop(host)
+        results[u] = host_info, data_info
+    return active_hosts, results
+
 def search_path(path_pattern):
     return settings.catalog.search(path_pattern)
 
@@ -27,6 +38,7 @@ def delete(url):
 def make_rpc():
     rpc = RPC()
     rpc.register_function(get_info)
+    rpc.register_function(get_info_bulk)
     rpc.register_function(search_path)
     rpc.register_function(hosts)
     rpc.register_function(chunked_copy)

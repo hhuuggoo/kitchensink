@@ -7,7 +7,8 @@ import requests
 import dill
 from rq.job import Status
 
-from ..serialization import (serializer, deserializer, unpack_result,
+from ..serialization import (serializer, deserializer, pack_msg,
+                             unpack_result, unpack_msg,
                              pack_rpc_call, unpack_results)
 from ..utils import make_query_url
 from ..errors import KitchenSinkError
@@ -23,38 +24,35 @@ class Client(object):
         self.rpc_name = rpc_name
         self.queue_name = queue_name
         self.data_threshold = 200000000 #200 megs
-        self.bulk = False
-
-    def bulk(self):
-        self.bulk = True
         self.calls = []
+
+    def bulk_call(self, func, *args, **kwargs):
+        self.calls.append((func, args, kwargs))
 
     def execute(self):
         urls = set()
         from ..data.routing  import inspect, route
         for func, args, kwargs in self.calls:
-            urls.add(inspect(args, kwargs))
+            urls.update(inspect(args, kwargs))
         info = self.data_info(urls)
+        calls = self.calls
+        self.calls = []
+        results = self._bulk_call(calls)
+        return self.bulk_async_result(results)
 
     def data_info(self, urls):
-        results = {}
-        active_hosts = self.call('hosts', _async=False, _rpc_name="data",
-                                 _no_route_data=True)
-        for u in urls:
-            host_info, data_info = self.call('get_info', u,
-                                             _no_route_data=True,
-                                             _rpc_name="data",
-                                             _async=False)
-            for host in host_info.keys():
-                if host not in active_hosts:
-                    host_info.pop(host)
-            results[u] = host_info, data_info
+        active_hosts, results = self.call('get_info_bulk', urls,
+                                          _async=False, _rpc_name="data",
+                                          _no_route_data=True)
         return active_hosts, results
 
-    def call(self, func, *args, **kwargs):
+    def rpc_message(self, func, *args, **kwargs):
         #TODO: check for serialized function
         #TODO: handle instance methods
-        print ("starting call", time.time())
+        async = kwargs.pop('_async', True)
+        active_hosts, infos = kwargs.pop("_data_infos", (None, None))
+        no_route_data = kwargs.pop('_no_route_data', False)
+
         func_string = None
         if isinstance(func, six.string_types):
             func_string = func
@@ -63,16 +61,14 @@ class Client(object):
         #pass func in to data later, when we support that kind of stuff
         if "_queue_name" in kwargs:
             queue_names = [kwargs.pop("_queue_name")]
-        elif kwargs.pop('_no_route_data', False):
+        elif no_route_data:
             queue_names = [self.queue_name]
         else:
             #fixme circular import
             from ..data.routing  import inspect, route
             data_urls = inspect(args, kwargs)
             if data_urls:
-                if '_data_infos' in kwargs:
-                    active_hosts, infos = kwargs.pop("_data_infos")
-                else:
+                if active_hosts is None and infos is None:
                     active_hosts, infos = self.data_info(data_urls)
                 queue_names = route(data_urls, active_hosts, infos, self.data_threshold)
                 #strip off size information
@@ -83,8 +79,6 @@ class Client(object):
                 queue_names = [self.queue_name]
         fmt = self.fmt
         auth_string = ""
-        async = kwargs.pop('_async', True)
-        rpc_name = kwargs.pop('_rpc_name', self.rpc_name)
 
         metadata = dict(
             func_string=func_string,
@@ -96,13 +90,39 @@ class Client(object):
         data = dict(func=func,
                     args=args,
                     kwargs=kwargs)
-
-        url = self.url + "rpc/call/%s/" % rpc_name
         msg = pack_rpc_call(metadata, data, fmt=self.fmt)
-        print ("enqueuing call", time.time())
+        return msg
+
+    def _bulk_call(self, calls):
+        """only works async
+        """
+        data = []
+        for func, args, kwargs in calls:
+            rpc_name = kwargs.pop('_rpc_name', self.rpc_name)
+            msg = self.rpc_message(func, *args, **kwargs)
+            data.append(rpc_name),
+            data.append(msg)
+        msg = pack_msg(*data, fmt=["raw" for x in range(len(data))])
+        url = self.url + "rpc/bulkcall/"
         result = requests.post(url, data=msg,
                                headers={'content-type' : 'application/octet-stream'})
-        print ("finished enqueuing call", time.time())
+        msg_format, messages = unpack_msg(result.content, override_fmt='raw')
+        jids = []
+        for msg in messages:
+            msg_format, [metadata, data] = unpack_result(msg)
+            if metadata['status'] == Status.FAILED:
+                raise Exception, metadata['error']
+            else:
+                jids.append(metadata['job_id'])
+        return jids
+
+    def call(self, func, *args, **kwargs):
+        async = kwargs.get('_async', True)
+        rpc_name = kwargs.pop('_rpc_name', self.rpc_name)
+        msg = self.rpc_message(func, *args, **kwargs)
+        url = self.url + "rpc/call/%s/" % rpc_name
+        result = requests.post(url, data=msg,
+                               headers={'content-type' : 'application/octet-stream'})
         msg_format, [metadata, data] = unpack_result(result.content)
         if metadata['status'] == Status.FAILED:
             raise Exception, metadata['error']

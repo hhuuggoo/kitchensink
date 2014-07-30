@@ -1,5 +1,5 @@
 from . import (json_serialization, dill_serialization,
-               pickle_serialization, cloudpickle)
+               pickle_serialization, cloudpickle, raw)
 
 from .. import utils
 
@@ -20,6 +20,9 @@ def register_default_serialization():
     register_serialization('cloudpickle',
                            cloudpickle.dumps,
                            pickle_serialization.deserialize)
+    register_serialization('raw',
+                           raw.serialize,
+                           raw.deserialize)
 
 register_default_serialization()
 
@@ -60,9 +63,9 @@ def pack_msg(*data, **kwargs):
     msg_format_string = serializer('json')(msg_format)
     return msg_format_string + separator + "".join(data_strings)
 
-def unpack_msg(input_string):
+def unpack_msg(input_string, override_fmt=None):
     msg_format = unpack_msg_format(input_string)
-    data = unpack_msg_data(msg_format, input_string)
+    data = unpack_msg_data(msg_format, input_string, override_fmt=override_fmt)
     return msg_format, data
 
 def unpack_msg_format(input_string):
@@ -73,7 +76,7 @@ def unpack_msg_data(msg_format, input_string, index=None, override_fmt=None):
     override_fmt is used to make sure we don't use something like dill
     when we don't want it (Security)
     """
-    _, data_string = input_string.split(separator)
+    _, data_string = input_string.split(separator, 1)
     def unpack_data(index):
         if override_fmt is None:
             fmt = msg_format['fmt'][index]
@@ -119,7 +122,7 @@ def pack_rpc_call(metadata, *data, **kwargs):
     return pack_msg(metadata, *data, fmt=fmts)
 
 def append_rpc_data(input_string, data, fmt=None):
-    msg_format, data_string = input_string.split(separator)
+    msg_format, data_string = input_string.split(separator, 1)
     msg_format = deserializer('json')(msg_format)
     new_string = serializer(fmt)(data)
     msg_format['len'].append(len(new_string))
