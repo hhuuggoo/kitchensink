@@ -36,6 +36,17 @@ def nonblock_pop(connection, keys, timeout=5.0):
             return k, msg
     return None
 
+def nonblock_popall(connection, keys):
+    logger.info("nonblock pop all")
+    outputs = []
+    for k in keys:
+        msgs = connection.lrange(k, 0, -1)
+        if msgs:
+            connection.ltrim(k, len(msgs), -1)
+            for m in msgs:
+                outputs.append((k, deserializer('json')(m)))
+    return outputs
+
 def pop(connection, keys, timeout=5.0):
     logger.info("pop")
     msg = connection.blpop(keys, timeout=timeout)
@@ -47,14 +58,7 @@ def pop(connection, keys, timeout=5.0):
 
 def _grab_all_messages(connection, keys):
     logger.info("grab all messages")
-    messages = []
-    while True:
-        msg = nonblock_pop(connection, keys, timeout=0.0)
-        if msg is None:
-            break
-        k, msg = msg
-        messages.append((k, msg))
-    return messages
+    return nonblock_popall(connection, keys)
 
 def _block_and_grab_all_messages(connection, keys, timeout=5.0):
     logger.info("block and grab all messages")
