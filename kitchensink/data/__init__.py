@@ -308,9 +308,10 @@ class RemoteData(object):
                     raw = f.read()
             else:
                 try:
-                    raw = raw.read()
+                    stream = raw
+                    raw = stream.read()
                 finally:
-                    raw.close()
+                    stream.close()
         self._raw = raw
         return raw
 
