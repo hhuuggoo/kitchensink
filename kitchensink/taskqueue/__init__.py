@@ -1,11 +1,14 @@
 import copy
 import time
+import logging
 
 from rq.job import Status
 from rq import Queue, cancel_job
 from rq import Connection
 
 from .objs import KitchenSinkJob, KitchenSinkRedisQueue, pull_intermediate_results
+
+log = logging.getLogger(__name__)
 
 class TaskQueue(object):
     def __init__(self, redis_conn):
@@ -43,19 +46,24 @@ class TaskQueue(object):
     #     return job._id, job.get_status()
 
     def bulkstatus(self, job_ids, timeout=5.0):
+        log.info("bulkstatus %s", time.time())
         with Connection(self.conn):
             jobs = [KitchenSinkJob(job_id) for job_id in job_ids]
+        log.info("got jobs %s", time.time())
         statuses = [job.get_status() for job in jobs]
+        log.info("got status %s", time.time())
         if any([x in {Status.FINISHED, Status.FAILED} for x in statuses]):
             messages = pull_intermediate_results(self.conn, job_ids, timeout=0)
         else:
             messages = pull_intermediate_results(self.conn, job_ids, timeout=timeout)
+        log.info("got intermediate results %s", time.time())
         statuses = [job.get_status() for job in jobs]
         metadata = {}
         results = {}
         messages_by_job = {}
         for job_id, msg in messages:
             messages_by_job.setdefault(job_id, []).append(msg)
+        log.info("prepping results %s", time.time())
         for job_id, job, status in zip(job_ids, jobs, statuses):
             if status == Status.FINISHED or status == Status.FAILED:
                 job.refresh()
@@ -71,6 +79,7 @@ class TaskQueue(object):
                 results[job_id] = job.exc_info
             else:
                 results[job_id] = None
+        log.info("results %s", time.time())
         return [(metadata[job_id], results[job_id]) for job_id in job_ids]
 
     def status(self, job_id, timeout=None):
