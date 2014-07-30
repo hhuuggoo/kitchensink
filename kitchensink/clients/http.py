@@ -34,10 +34,10 @@ class Client(object):
         from ..data.routing  import inspect, route
         for func, args, kwargs in self.calls:
             urls.update(inspect(args, kwargs))
-        info = self.data_info(urls)
+        active_hosts, data_info = self.data_info(urls)
         calls = self.calls
         self.calls = []
-        results = self._bulk_call(calls)
+        results = self._bulk_call(calls, active_hosts, data_info)
         return self.bulk_async_result(results)
 
     def data_info(self, urls):
@@ -50,7 +50,8 @@ class Client(object):
         #TODO: check for serialized function
         #TODO: handle instance methods
         async = kwargs.pop('_async', True)
-        active_hosts, infos = kwargs.pop("_data_infos", (None, None))
+        active_hosts = kwargs.pop('_active_hosts', None)
+        data_info = kwargs.pop('_data_info', None)
         no_route_data = kwargs.pop('_no_route_data', False)
 
         func_string = None
@@ -68,9 +69,10 @@ class Client(object):
             from ..data.routing  import inspect, route
             data_urls = inspect(args, kwargs)
             if data_urls:
-                if active_hosts is None and infos is None:
-                    active_hosts, infos = self.data_info(data_urls)
-                queue_names = route(data_urls, active_hosts, infos, self.data_threshold)
+                if active_hosts is None and data_info is None:
+                    active_hosts, data_info = self.data_info(data_urls)
+                queue_names = route(data_urls, active_hosts, data_info,
+                                    self.data_threshold)
                 #strip off size information
                 queue_names = [x[0] for x in queue_names]
                 print (queue_names)
@@ -93,12 +95,14 @@ class Client(object):
         msg = pack_rpc_call(metadata, data, fmt=self.fmt)
         return msg
 
-    def _bulk_call(self, calls):
+    def _bulk_call(self, calls, active_hosts, data_info):
         """only works async
         """
         data = []
         for func, args, kwargs in calls:
             rpc_name = kwargs.pop('_rpc_name', self.rpc_name)
+            kwargs['_data_info'] = data_info
+            kwargs['_active_hosts'] = active_hosts
             msg = self.rpc_message(func, *args, **kwargs)
             data.append(rpc_name),
             data.append(msg)
