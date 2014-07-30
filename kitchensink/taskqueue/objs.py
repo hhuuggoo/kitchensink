@@ -36,8 +36,6 @@ def nonblock_pop(connection, keys, timeout=5.0):
     return None
 
 def pop(connection, keys, timeout=5.0):
-    if timeout == 0:
-        import pdb; pdb.set_trace()
     msg = connection.blpop(keys, timeout=timeout)
     if msg is None:
         return None
@@ -46,6 +44,7 @@ def pop(connection, keys, timeout=5.0):
     return k, msg
 
 def _grab_all_messages(connection, keys):
+    logger.info("grab all messages")
     messages = []
     while True:
         msg = nonblock_pop(connection, keys, timeout=0.0)
@@ -56,6 +55,7 @@ def _grab_all_messages(connection, keys):
     return messages
 
 def _block_and_grab_all_messages(connection, keys, timeout=5.0):
+    logger.info("block and grab all messages")
     messages = []
     msg = pop(connection, keys, timeout=timeout)
     if msg is None:
