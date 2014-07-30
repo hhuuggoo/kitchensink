@@ -76,9 +76,11 @@ class TaskQueue(object):
             if status == Status.FINISHED:
                 results[job_id] = job.return_value
                 job.delete()
+                log.info("delete job")
             elif status == Status.FAILED:
                 results[job_id] = job.exc_info
                 job.delete()
+                log.info("delete job")
             else:
                 results[job_id] = None
         log.info("results %s", time.time())
@@ -106,11 +108,13 @@ class TaskQueue(object):
         if status == Status.FINISHED:
             retval = job.return_value
             job.delete()
+            log.info("delete job")
             return metadata, retval
 
         elif status == Status.FAILED:
             retval = job.exc_info
             job.delete()
+            log.info("delete job")
             return metadata, retval
         else:
             return metadata, None
