@@ -57,8 +57,11 @@ class TaskQueue(object):
         for job_id, msg in messages:
             messages_by_job.setdefault(job_id, []).append(msg)
         for job_id, job, status in zip(job_ids, jobs, statuses):
-            job.refresh()
-            mdata = copy.copy(job.meta)
+            if status == Status.FINISHED or status == Status.FAILED:
+                job.refresh()
+                mdata = copy.copy(job.meta)
+            else:
+                mdata = {}
             mdata['status'] = status
             mdata['msgs'] = messages_by_job.get(job_id, [])
             metadata[job_id] = mdata

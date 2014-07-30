@@ -222,33 +222,26 @@ class Client(object):
         return self.async_result(self.call('search_path', pattern,
                                            _async=True,
                                            _rpc_name='data'))
-    def reduce_data_hosts(self, url, number=0, remove_host=None, async=False):
-        host_info, data_info = self.call('get_info', url,
-                                         _rpc_name='data',
-                                         _async=False)
-        active_hosts = self.call('hosts', _async=False,
-                                 _rpc_name="data",
-                                 _no_route_data=True)
-        hosts = set(active_hosts).intersection(set(host_info.keys()))
-        jobs = []
-        if not len(hosts) > number:
-            print("%s hosts have data.  Not reducing" % len(hosts))
-            return
-        if remove_host and remove_host in hosts:
-            hosts = [x for x in hosts if x != remove_host]
-            hosts.append(remove_host)
-        to_keep = set(list(hosts)[:number])
-        assert len(to_keep) == number
-        to_delete = set(hosts).difference(to_keep)
-        print ("**DELETE", to_delete)
-        print ("**KEEP", to_keep)
-        for host in to_delete:
-            result = self.call('delete', url, _queue_name=host, _rpc_name='data')
-            jobs.append(result)
-        if async:
-            return jobs
-        else:
-            return self.bulk_async_result(jobs)
+    def reduce_data_hosts(self, *urls, **kwargs):
+        number = kwargs.pop('number', 0)
+        remove_host = kwargs.pop('remove_host', None)
+        active_hosts, infos = self.data_info(urls)
+        for url in urls:
+            host_info, data_info = infos[url]
+            hosts = set(active_hosts).intersection(set(host_info.keys()))
+            if not len(hosts) > number:
+                print("%s hosts have data for %s.  Not reducing" % (len(hosts), url))
+                continue
+            if remove_host and remove_host in hosts:
+                hosts = [x for x in hosts if x != remove_host]
+                hosts.append(remove_host)
+            to_keep = set(list(hosts)[:number])
+            assert len(to_keep) == number
+            to_delete = set(hosts).difference(to_keep)
+            for host in to_delete:
+                self.bulk_call('delete', url, _queue_name=host,
+                               _rpc_name='data')
+        self.execute()
 
     def move_data(self, url, length, from_host, to_host=None):
         active_hosts = self.call('hosts', _async=False,
