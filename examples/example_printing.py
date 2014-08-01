@@ -1,5 +1,6 @@
 import logging
 import time
+import datetime as dt
 
 from kitchensink.clients.http import Client
 from kitchensink import settings
@@ -8,17 +9,19 @@ c = Client(settings.rpc_url)
 
 def test_func(x):
     time.sleep(1)
-    print (x)
+    print "FOO"
     time.sleep(1)
-    print (x)
-    return x
-
+    print "FOO"
 
 st = time.time()
-#c.bulk_call(test_func, 1, _intermediate_results=False)
-#c.execute()
-c.call(test_func, 1, _async=False)
+print "%f" % st
+c.bulk_call(test_func, 1,)
+c.execute()
+c.bulk_results()
+#c.async_result(c.call(test_func, 1, _intermediate_results=False))
+#c.call(test_func, 1, _async=False)
 ed = time.time()
+print "%f" % ed
 print ed-st
 #job2 = c.call(test_func, 2)
 #job3 = c.call(test_func, 3)

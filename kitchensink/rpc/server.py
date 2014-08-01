@@ -38,7 +38,7 @@ def close():
     rpcblueprint.heartbeat_thread.kill = True
     rpcblueprint.heartbeat_thread.join()
 
-def run(gevent=True):
+def run(gevent=False):
     app.debug = True
     rpcblueprint.heartbeat_thread.start()
     atexit.register(close)

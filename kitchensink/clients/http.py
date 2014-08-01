@@ -1,6 +1,7 @@
 from __future__ import print_function
 import time
 import random
+import datetime as dt
 
 import six
 import requests
@@ -40,8 +41,10 @@ class Client(object):
             active_hosts, data_info = None, None
         calls = self.calls
         self.calls = []
-        results = self._bulk_call(calls, active_hosts, data_info)
-        return self.bulk_async_result(results)
+        self.jids = self._bulk_call(calls, active_hosts, data_info)
+
+    def bulk_results(self):
+        return self.bulk_async_result(self.jids)
 
     def data_info(self, urls):
         active_hosts, results = self.call('get_info_bulk', urls,
@@ -112,6 +115,7 @@ class Client(object):
             data.append(msg)
         msg = pack_msg(*data, fmt=["raw" for x in range(len(data))])
         url = self.url + "rpc/bulkcall/"
+        print ("POST",dt.datetime.now().isoformat())
         result = requests.post(url, data=msg,
                                headers={'content-type' : 'application/octet-stream'})
         msg_format, messages = unpack_msg(result.content, override_fmt='raw')
@@ -169,6 +173,7 @@ class Client(object):
                 break
             if len(to_query) == 0:
                 break
+
             result = requests.post(raw_url,
                                    data={'job_ids' : ",".join(to_query)},
             )

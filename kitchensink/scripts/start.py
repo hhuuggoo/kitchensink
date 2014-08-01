@@ -1,10 +1,9 @@
 from __future__ import print_function
 try:
     import gevent.monkey
+    gevent.monkey.patch_all()
 except ImportError:
     pass
-else:
-    gevent.monkey.patch_all()
 from argparse import ArgumentParser
 import os
 from os.path import abspath
@@ -24,7 +23,7 @@ from kitchensink.rpc.server import make_app, run as runserver, register_rpc
 from kitchensink.data.datarpc import make_rpc
 from kitchensink.data import Catalog
 import kitchensink.settings as settings
-FORMAT = "%(asctime)-15s %(pathname)s:%(message)s"
+FORMAT = "%(created)f:%(name)s:%(message)s"
 comments = \
 """
 kitchen sink RPC Server

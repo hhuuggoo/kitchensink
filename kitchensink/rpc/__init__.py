@@ -19,7 +19,7 @@ from ..serialization import (json_serialization,
                              append_rpc_data
 )
 
-from ..taskqueue.objs import get_current_job, KitchenSinkJob
+from ..taskqueue.objs import current_job_id, KitchenSinkJob
 from ..errors import UnauthorizedAccess, UnknownFunction, WrappedError, KitchenSinkError
 from ..settings import serializer, deserializer
 from .. import settings
@@ -61,7 +61,6 @@ class RPC(object):
     def call(self, msg):
         logger.info("CALL")
         metadata = unpack_rpc_metadata(msg)
-        logger.info("METADATA %s", metadata)
         #metadata
         result_fmt = metadata.get('result_fmt', 'cloudpickle')
         queue_names = metadata.get('queue_names', ['default'])
@@ -109,7 +108,8 @@ class RPC(object):
             queue_names,
             execute_msg,
             [msg],
-            {}, metadata=metadata
+            {'intermediate_results' : metadata['intermediate_results']},
+            metadata=metadata
         )
         metadata = {'result_fmt' : fmt,
                     'job_id' : job_id,
@@ -154,7 +154,6 @@ class OutputThread(threading.Thread):
             self.buf = ""
             while not self.kill:
                 self.output(toread)
-
             self.output(toread)
     def output(self, toread):
         read = toread.read()
@@ -169,7 +168,10 @@ class OutputThread(threading.Thread):
 
 def _execute_msg(msg):
     logger.info("EXECUTING")
+    st = time.time()
     msg_format, metadata, data = unpack_rpc_call(msg)
+    ed = time.time()
+    logger.info("UNPACKED %s", (ed - st))
     func = data['func']
     args = data.get('args', [])
     kwargs = data.get('kwargs', {})
@@ -194,15 +196,17 @@ def unpatch_loggers(patched):
     for handler, stream in patched:
         handler.stream = stream
 
-def execute_msg(msg):
-    with Connection(settings.redis_conn):
-        job = get_current_job()
-    if not job or not job.meta.get('intermediate_results', True):
+def execute_msg(msg, intermediate_results=False):
+
+    if not current_job_id() or not intermediate_results:
+        logger.info("**jobid %s", current_job_id())
         return _execute_msg(msg)
+    logger.info("intermediate_results %s", intermediate_results)
     output = tempfile.NamedTemporaryFile(prefix="ks-").name
     output_thread = OutputThread()
     output_thread.filename = output
-    output_thread.job = job
+    output_thread.job = KitchenSinkJob(current_job_id(),
+                                       connection=settings.redis_conn)
     output_thread.kill = False
     old_stdout = sys.stdout
     old_stderr = sys.stderr

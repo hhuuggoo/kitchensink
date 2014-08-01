@@ -58,7 +58,7 @@ def setup_loghandlers(level=None):
 
             'formatters': {
                 'console': {
-                    'format': "%(asctime)-15s %(name)s:%(lineno)s:%(message)s"
+                    'format' : "%(created)f:%(name)s:%(message)s"
                 },
             },
 

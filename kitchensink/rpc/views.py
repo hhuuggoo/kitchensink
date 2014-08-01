@@ -1,6 +1,7 @@
 import logging
 from os.path import exists
 import traceback
+import time
 
 from flask import request, current_app, jsonify
 from rq.job import Status
@@ -38,7 +39,10 @@ def call(rpcname):
 def bulkcall():
     logger.info("BULKPOST, call")
     msg = request.data
+    st = time.time()
     msg_format, messages = unpack_msg(msg, override_fmt='raw') # strip of format
+    ed = time.time()
+    logger.info("unpack, msg %f", ed-st)
     calls = [(messages[i], messages[i+1]) for i in range(0, len(messages), 2)]
     results = []
     for rpcname, msg in calls:
@@ -69,7 +73,8 @@ def cancel(job_id):
 
 @rpcblueprint.route("/bulkstatus/", methods=['POST', 'GET'])
 def bulk_status():
-    timeout = request.values.get('timeout', 1)
+    logger.info("START BULKSTATUS, call")
+    timeout = request.values.get('timeout', 5)
     job_ids = request.values.get('job_ids').split(",")
     if timeout:
         timeout = int(timeout)
@@ -78,6 +83,7 @@ def bulk_status():
     # otherwise for status we just use json
     fmt = [x[0].get('result_fmt', 'json') for x in metadata_data_pairs]
     result = pack_results(metadata_data_pairs, fmt=fmt)
+    logger.info("DONE BULKSTATUS, call")
     return current_app.response_class(response=result,
                                       status=200,
                                       mimetype='application/octet-stream')

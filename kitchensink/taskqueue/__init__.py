@@ -17,26 +17,25 @@ class TaskQueue(object):
 
     def get_queue(self, name):
         if not name in self.queues:
-            with Connection(self.conn):
-                queue = KitchenSinkRedisQueue(name)
-                self.queues[name] = queue
+            log.info("MAKING QUEUE")
+            queue = KitchenSinkRedisQueue(name, connection=self.conn)
+            self.queues[name] = queue
         return self.queues[name]
 
     def enqueue(self, queue_names, func, args, kwargs, metadata={}, interval=0.01):
-        log.info("creating job ")
+        st = time.time()
         job = KitchenSinkJob.create(
             func, args, kwargs, connection=self.conn,
             result_ttl=None, status=Status.QUEUED,
-            description=None, depends_on=None, timeout=None)
+            description="ksjob", depends_on=None, timeout=None)
         for k,v in metadata.items():
             job.meta[k] = v
-        log.info("saving job")
         job.save()
         for queue_name in queue_names:
             queue = self.get_queue(queue_name)
             queue.enqueue_job(job)
-            #time.sleep(interval)
-        log.info("enqueued job")
+        ed = time.time()
+        log.info("TOTAL enqueued job %s", ed-st)
         return job._id, job.get_status()
 
     # def enqueue(self, queue_name, func, args, kwargs, metadata={}):
@@ -48,24 +47,22 @@ class TaskQueue(object):
     #     return job._id, job.get_status()
 
     def bulkstatus(self, job_ids, timeout=5.0):
-        log.info("bulkstatus %s", time.time())
+        st = time.time()
         with Connection(self.conn):
             jobs = [KitchenSinkJob(job_id) for job_id in job_ids]
-        log.info("got jobs %s", time.time())
         statuses = [job.get_status() for job in jobs]
-        log.info("got status %s", time.time())
         if any([x in {Status.FINISHED, Status.FAILED} for x in statuses]):
             messages = pull_intermediate_results(self.conn, job_ids, timeout=0)
         else:
             messages = pull_intermediate_results(self.conn, job_ids, timeout=timeout)
-        log.info("got intermediate results %s", time.time())
+        mt = time.time()
+        print ("MESSAGES %s, %s, %s" % (mt, mt - st, messages))
         statuses = [job.get_status() for job in jobs]
         metadata = {}
         results = {}
         messages_by_job = {}
         for job_id, msg in messages:
             messages_by_job.setdefault(job_id, []).append(msg)
-        log.info("prepping results %s", time.time())
         for job_id, job, status in zip(job_ids, jobs, statuses):
             if status == Status.FINISHED or status == Status.FAILED:
                 job.refresh()
@@ -78,14 +75,13 @@ class TaskQueue(object):
             if status == Status.FINISHED:
                 results[job_id] = job.return_value
                 job.delete()
-                log.info("delete job")
             elif status == Status.FAILED:
                 results[job_id] = job.exc_info
                 job.delete()
-                log.info("delete job")
             else:
                 results[job_id] = None
-        log.info("results %s", time.time())
+        ed = time.time()
+        log.info("queue BULKSTATUS %s", ed - st)
         return [(metadata[job_id], results[job_id]) for job_id in job_ids]
 
     def status(self, job_id, timeout=None):
