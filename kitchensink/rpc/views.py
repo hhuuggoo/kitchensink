@@ -71,6 +71,13 @@ def cancel(job_id):
     rpcblueprint.task_queue.cancel(job_id)
     return "success"
 
+@rpcblueprint.route("/bulkcancel/", methods=['POST'])
+def bulk_cancel(job_id):
+    job_ids = request.values.get('job_ids').split(",")
+    for job_id in job_ids:
+        rpcblueprint.task_queue.cancel(job_id)
+    return "success"
+
 @rpcblueprint.route("/bulkstatus/", methods=['POST', 'GET'])
 def bulk_status():
     logger.info("START BULKSTATUS, call")

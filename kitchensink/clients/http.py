@@ -44,7 +44,19 @@ class Client(object):
         self.jids = self._bulk_call(calls, active_hosts, data_info)
 
     def bulk_results(self):
-        return self.bulk_async_result(self.jids)
+        try:
+            self.bulk_async_result(self.jids)
+        except KeyboardInterrupt as e:
+            self.bulk_cancel(self.jids)
+
+    def bulk_cancel(self, jids=None):
+        if jids is None:
+            jids = self.jids
+        raw_url = self.url + "rpc/bulkcancel/"
+        result = requests.post(raw_url,
+                               data={'job_ids' : ",".join(jids)}
+        )
+
 
     def data_info(self, urls):
         active_hosts, results = self.call('get_info_bulk', urls,
