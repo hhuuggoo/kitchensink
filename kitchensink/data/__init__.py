@@ -411,3 +411,11 @@ class RemoteData(object):
         host = c.pick_host(self.data_url)
         calls = self._pipeline_existing(host)
         print c.bulk_async_result(calls)
+
+
+def du(url):
+    return RemoteData(data_url=url)
+def dp(path):
+    return RemoteData(local_path=path)
+def do(obj):
+    return RemoteData(obj=obj)
