@@ -298,7 +298,7 @@ class KitchenSinkWorker(Worker):
         if rv is None:
             self.log.info('Job OK')
         else:
-            self.log.info('Job OK, result = %s' % rv)
+            self.log.info('Job OK, result = %s', rv)
 
         if result_ttl == 0:
             self.log.info('Result discarded immediately.')
