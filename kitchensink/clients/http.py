@@ -45,7 +45,7 @@ class Client(object):
 
     def bulk_results(self):
         try:
-            self.bulk_async_result(self.jids)
+            return self.bulk_async_result(self.jids)
         except KeyboardInterrupt as e:
             self.bulk_cancel(self.jids)
 
@@ -263,6 +263,7 @@ class Client(object):
                 self.bulk_call('delete', url, _queue_name=host,
                                _rpc_name='data')
         self.execute()
+        self.bulk_results()
 
     def move_data(self, url, length, from_host, to_host=None):
         active_hosts = self.call('hosts', _async=False,
