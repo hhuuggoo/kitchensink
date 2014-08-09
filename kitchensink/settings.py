@@ -63,3 +63,7 @@ def setup_client(_rpc_url):
     global data_rpc_url
     rpc_url = _rpc_url
     data_rpc_url = rpc_url
+
+def client():
+    from .clients import http
+    return http.Client(rpc_url)

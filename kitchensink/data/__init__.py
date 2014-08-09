@@ -411,7 +411,13 @@ class RemoteData(object):
         host = c.pick_host(self.data_url)
         calls = self._pipeline_existing(host)
         print c.bulk_async_result(calls)
-
+    def __repr__(self):
+        if self.data_url:
+            return "RemoteData(data_url='%s')" % self.data_url
+        elif self._local_path:
+            return "RemoteData(local_path='%s')" % self._local_path
+        else:
+            return "RemoteData(obj=obj)"
 
 def du(url):
     return RemoteData(data_url=url)

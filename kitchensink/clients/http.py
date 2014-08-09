@@ -26,11 +26,25 @@ class Client(object):
         self.queue_name = queue_name
         self.data_threshold = 200000000 #200 megs
         self.calls = []
+        self.local = False
 
     def bulk_call(self, func, *args, **kwargs):
         self.calls.append((func, args, kwargs))
 
+    bc = bulk_call
+    def execute_local(self):
+        self.results = []
+        for c in self.calls:
+            func, args, kwargs = c
+            r = func(*args, **kwargs)
+            self.results.append(r)
+
+    def bulk_results_local(self):
+        return self.results
+
     def execute(self):
+        if self.local:
+            return self.execute_local()
         urls = set()
         from ..data.routing  import inspect, route
         for func, args, kwargs in self.calls:
@@ -44,11 +58,13 @@ class Client(object):
         self.jids = self._bulk_call(calls, active_hosts, data_info)
 
     def bulk_results(self):
+        if self.local:
+            return self.bulk_results_local()
         try:
             return self.bulk_async_result(self.jids)
         except KeyboardInterrupt as e:
             self.bulk_cancel(self.jids)
-
+    br = bulk_results
     def bulk_cancel(self, jids=None):
         if jids is None:
             jids = self.jids
@@ -280,3 +296,7 @@ class Client(object):
         result = self.call('delete', url, _queue_name=from_host, _rpc_name='data')
         result = self.async_result(result)
         print (result)
+
+    def reducetree(self, pattern, number=0, remove_host=None):
+        matching = self.path_search(pattern)
+        self.reduce_data_hosts(*matching, number=number, remove_host=remove_host)

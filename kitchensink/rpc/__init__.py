@@ -4,6 +4,7 @@ import cStringIO
 import threading
 import logging
 import time
+import hashlib
 
 from rq.job import Status
 from rq import Queue, Connection
@@ -23,6 +24,7 @@ from ..taskqueue.objs import current_job_id, KitchenSinkJob
 from ..errors import UnauthorizedAccess, UnknownFunction, WrappedError, KitchenSinkError
 from ..settings import serializer, deserializer
 from .. import settings
+from ..data import du, do
 
 logger = logging.getLogger(__name__)
 """
@@ -173,9 +175,24 @@ def _execute_msg(msg):
     ed = time.time()
     logger.info("UNPACKED %s", (ed - st))
     func = data['func']
+    memoize_url = None
+    if hasattr(func, "ks_memoize") and func.ks_memoize and settings.catalog:
+        m = hashlib.md5()
+        m.update(msg)
+        key = m.hexdigest()
+        memoize_url = "memoize/%s" % key
+        hosts_info, data_info = settings.catalog.get_info(memoize_url)
+        if len(hosts_info) > 0:
+            logger.info("retrieving memoized")
+            return du(memoize_url).obj()
+
     args = data.get('args', [])
     kwargs = data.get('kwargs', {})
     result = func(*args, **kwargs)
+    if memoize_url:
+        logger.info("saving memoized")
+
+        do(result).save(url=memoize_url)
     logger.info("DONE EXECUTING")
     return result
 
