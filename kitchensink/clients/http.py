@@ -239,9 +239,13 @@ class Client(object):
         result = requests.get(url, stream=True)
         return result
 
-    def _put_data(self, path, f):
+    def _put_data(self, path, f, data_type='object', fmt="cloudpickle"):
         url = self.url + "rpc/data/%s/" % path
-        result = requests.post(url, files={'data' : f}).json()
+        result = requests.post(url,
+                               data={'data_type' : data_type,
+                                     'fmt' : fmt
+                                 },
+                               files={'data' : f}).json()
         if result.get('error'):
             raise Exception(result.get('error'))
         return result

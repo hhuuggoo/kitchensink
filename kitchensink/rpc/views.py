@@ -125,8 +125,12 @@ def get_data(path):
 def put_data(path):
     #check auth here if we're doing auth
     fstorage = request.files['data']
+    data_type = request.values.get('data_type', 'object')
+    fmt = request.values.get('fmt', 'cloudpickle')
     try:
-        settings.catalog.write(fstorage, path, is_new=True)
+        settings.catalog.write(fstorage, path, is_new=True,
+                               data_type=data_type,
+                               fmt=fmt)
         return jsonify(success=True)
     except Exception as e:
         exc_info = traceback.format_exc()

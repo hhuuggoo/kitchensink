@@ -36,6 +36,7 @@ host_url = None
 redis_conn = None
 prefix = ""
 timeout = 10
+is_server = None
 
 rpc_url = None
 data_rpc_url = None
@@ -48,7 +49,9 @@ def setup_server(_redis_conn, _datadir, _host_url, _catalog):
     global host_url
     global redis_conn
     global data_rpc_url
+    global is_server
 
+    is_server = True
     catalog = _catalog
     datadir = _datadir
     host_url = _host_url
@@ -61,6 +64,8 @@ def setup_client(_rpc_url):
         _rpc_url += "/"
     global rpc_url
     global data_rpc_url
+    global is_server
+    is_server = False
     rpc_url = _rpc_url
     data_rpc_url = rpc_url
 

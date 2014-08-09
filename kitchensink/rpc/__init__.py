@@ -189,9 +189,10 @@ def _execute_msg(msg):
     args = data.get('args', [])
     kwargs = data.get('kwargs', {})
     result = func(*args, **kwargs)
+    if hasattr(func, 'ks_remote') and func.ks_remote:
+        result.save()
     if memoize_url:
         logger.info("saving memoized")
-
         do(result).save(url=memoize_url)
     logger.info("DONE EXECUTING")
     return result

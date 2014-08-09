@@ -93,7 +93,7 @@ class Catalog(object):
             makedirs(dirname(file_path))
         return file_path
 
-    def write(self, finput, url, is_new=True):
+    def write(self, finput, url, is_new=True, data_type="object", fmt="cloudpickle"):
         file_path = self.setup_file_path_from_url(url)
         if is_new:
             if self.url_exists(url):
@@ -106,7 +106,7 @@ class Catalog(object):
                 self._raw_write(finput, f)
         if is_new:
             size = stat(file_path).st_size
-            self.set_metadata(url, size)
+            self.set_metadata(url, size, data_type=data_type, fmt=fmt)
         self.add(file_path, url)
         return file_path
 
@@ -133,7 +133,7 @@ class Catalog(object):
                 f.write(chunk)
         if is_new:
             size = stat(file_path).st_size
-            self.set_metadata(url, size)
+            self.set_metadata(url, size, data_type=data_type)
         self.add(file_path, url)
         return file_path
 
@@ -154,9 +154,12 @@ class Catalog(object):
         start_key = self.starting_key(url)
         self.conn.hset(start_key, self.host_url, file_path)
 
-    def set_metadata(self, url, size):
+    def set_metadata(self, url, size, data_type="object", fmt="cloudpickle"):
         data_key = self.data_key(url)
-        self.conn.hset(data_key, 'size', str(size))
+        self.conn.hmset(data_key, {'size' : str(size),
+                                   'data_type' : data_type,
+                                   'fmt' : fmt}
+        )
 
     def get_chunked_iterator(self, url, length, host_url=None):
         if host_url is None:
@@ -254,11 +257,11 @@ class RemoteData(object):
         resp = self.client(url)._get_data(self.data_url)
         return resp.raw
 
-    def _put(self, f):
+    def _put(self, f, data_type='object', fmt="cloudpickle"):
         logger.info("posting %s to %s", self.data_url, self.rpc_url)
         f.seek(0)
         c = self.client(self.rpc_url)
-        return c._put_data(self.data_url, f)
+        return c._put_data(self.data_url, f, data_type=data_type, fmt=fmt)
 
     def local_path(self, path=None):
         """provides a path to a local file that contains the
@@ -346,7 +349,9 @@ class RemoteData(object):
                 f = cStringIO.StringIO()
                 data = serializer(self.fmt)(self._obj)
                 f.write(data)
-            self._put(f)
+            data_type = "object" if self._obj is not None else None
+            fmt = self.fmt if self._obj is not None else None
+            self._put(f, data_type=data_type, fmt=fmt)
         except Exception as e:
             if f:
                 f.close()

@@ -15,5 +15,4 @@ df = pd.DataFrame({'a' : np.arange(2000000)})
 obj = do(df)
 obj.save()
 print obj[100:400].obj()
-print obj['a']
-print obj['a'][100:400].obj()
+print obj[100:400]['a'].obj()
