@@ -201,7 +201,6 @@ class Catalog(object):
             return retval
 
     def get_info(self, url):
-
         hosts_info = self.conn.hgetall(self.path_key(url))
         data_info = self.conn.hgetall(self.data_key(url))
         if 'size' in data_info:
@@ -418,6 +417,18 @@ class RemoteData(object):
             return "RemoteData(local_path='%s')" % self._local_path
         else:
             return "RemoteData(obj=obj)"
+
+    def __getitem__(self, arg):
+        if settings.catalog:
+            print ("loading direct")
+            obj = do(self.obj()[arg])
+            obj.save()
+            return obj
+        else:
+            c = Client(self.rpc_url)
+            return c.async_result(c.call(self.__getitem__, arg))
+
+    __getitem__.ks_memoize = True
 
 def du(url):
     return RemoteData(data_url=url)
