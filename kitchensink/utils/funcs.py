@@ -1,3 +1,4 @@
+from .decorators import remote
 def fhead(obj, start=0, end=10):
     path = obj.local_path()
     results = []
@@ -8,7 +9,6 @@ def fhead(obj, start=0, end=10):
                 break
     return results[start:]
 
-
-
-def slice(obj, start=0, end=10):
-    return obj.obj()[start:end]
+@remote
+def max(obj):
+    return obj['latitude'].obj().max()

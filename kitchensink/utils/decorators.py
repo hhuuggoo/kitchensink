@@ -14,7 +14,7 @@ def reconcile(obj, infos):
             return obj.obj()
         elif obj._local_path is not None:
             return obj.local_path()
-        elif infos[obj.data_url][1].get('data_type', 'object') == 'object':
+        elif infos[-1][obj.data_url][1].get('data_type', 'object') == 'object':
             obj = obj.obj()
         else:
             obj = obj.local_path()
