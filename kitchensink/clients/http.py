@@ -27,8 +27,11 @@ class Client(object):
         self.data_threshold = 200000000 #200 megs
         self.calls = []
         self.local = False
+        self.prefix = ""
 
     def bulk_call(self, func, *args, **kwargs):
+        if self.prefix and '_prefix' not in kwargs:
+            kwargs['_prefix'] = self.prefix
         self.calls.append((func, args, kwargs))
 
     bc = bulk_call
@@ -88,6 +91,8 @@ class Client(object):
         data_info = kwargs.pop('_data_info', None)
         no_route_data = kwargs.pop('_no_route_data', False)
         intermediate_results = kwargs.pop('_intermediate_results', True)
+        prefix = kwargs.pop('_prefix', "")
+
         func_string = None
         if isinstance(func, six.string_types):
             func_string = func
@@ -122,7 +127,9 @@ class Client(object):
             result_fmt=fmt,
             queue_names=queue_names,
             auth_string=auth_string,
-            async=async)
+            async=async,
+            prefix=prefix
+        )
 
         data = dict(func=func,
                     args=args,

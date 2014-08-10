@@ -190,7 +190,7 @@ def _execute_msg(msg):
     kwargs = data.get('kwargs', {})
     result = func(*args, **kwargs)
     if hasattr(func, 'ks_remote') and func.ks_remote:
-        result.save()
+        result.save(prefix=metadata.get('prefix', ''))
     if memoize_url:
         logger.info("saving memoized")
         do(result).save(url=memoize_url)
