@@ -9,6 +9,14 @@ def fhead(obj, start=0, end=10):
                 break
     return results[start:]
 
-@remote
-def max(obj):
-    return obj['latitude'].obj().max()
+def max(obj, col):
+    return obj[col].obj().max()
+
+def min(obj, col):
+    return obj[col].obj().min()
+
+def chunks(l, n):
+    """ Yield successive n-sized chunks from l.
+    """
+    for i in range(0, len(l), n):
+        yield l[i:i+n]

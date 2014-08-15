@@ -311,3 +311,23 @@ class Client(object):
     def reducetree(self, pattern, number=0, remove_host=None):
         matching = self.path_search(pattern)
         self.reduce_data_hosts(*matching, number=number, remove_host=remove_host)
+
+    def md5(self, url):
+        from kitchensink.data import du
+        infos = self.data_info([url])
+        active_hosts = infos[0]
+        info, metadata = infos[-1][url]
+        hosts = set(active_hosts).intersection(set(info.keys()))
+        obj = du(url)
+        for h in hosts:
+            c.bc(md5sum, obj, _queue_name=h)
+        c.execute()
+        return c.br()
+
+import hashlib
+def md5sum(obj):
+    path = obj.local_path()
+    m = hashlib.md5()
+    with open(path) as f:
+        m.update(f.read())
+    return m.hexdigest()

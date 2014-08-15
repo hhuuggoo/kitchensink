@@ -185,8 +185,8 @@ class Catalog(object):
 
     def get(self, url, host=None):
         file_path = self.setup_file_path_from_url(url)
-        logger.warning("ALREADY HAVE %s, no need to retrieve" % file_path)
         if exists(file_path):
+            logger.warning("ALREADY HAVE %s, no need to retrieve" % file_path)
             return file_path
         hosts_info, data_info = self.get_info(url)
         if self.host_url in hosts_info:
@@ -431,7 +431,7 @@ class RemoteData(object):
             return obj
         else:
             c = Client(self.rpc_url)
-            return c.async_result(c.call(self.__getitem__, arg))
+            return c.async_result(c.call(self.__class__.__getitem__, self, arg))
 
     __getitem__.ks_memoize = True
 
