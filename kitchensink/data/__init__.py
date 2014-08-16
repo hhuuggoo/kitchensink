@@ -322,9 +322,16 @@ class RemoteData(object):
             return self._obj
         else:
             #should be able to pass a file in later
-            obj = deserializer(self.fmt)(self.raw())
-            self._obj = obj
-            return obj
+            try:
+                raw = self.raw()
+                obj = deserializer(self.fmt)(raw)
+                self._obj = obj
+                return obj
+            except Exception as e:
+                logger.error("error with %s on %s" %
+                             self.data_url,
+                             settings.data_rpc_url)
+                logger.exception(e)
 
     def delete(self):
         raise NotImplementedError
