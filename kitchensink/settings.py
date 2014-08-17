@@ -27,7 +27,7 @@ def deserializer(fmt):
 # the rest as whatever format the user wants to send
 # separator splits it out
 separator = '""""'
-chunk_size = 20000
+chunk_size = 2000000
 
 #toset
 catalog = None

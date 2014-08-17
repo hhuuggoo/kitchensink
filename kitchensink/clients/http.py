@@ -299,9 +299,11 @@ class Client(object):
         candidates = [x for x in active_hosts if x != from_host]
         for url, (host_info, metadata) in data_info.items():
             if to_host is None:
-                to_host = random.choice(candidates)
+                target = random.choice(candidates)
+            else:
+                target = to_host
             if from_host in host_info and len(host_info) == 1:
-                self.bc('chunked_copy', url, metadata.get('size'), from_host, _queue_name=to_host)
+                self.bc('chunked_copy', url, metadata.get('size'), from_host, _queue_name=target)
         self.execute()
         self.br()
 
