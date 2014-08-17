@@ -184,11 +184,16 @@ class Catalog(object):
             yield data
 
     def get(self, url, host=None):
+        hosts_info, data_info = self.get_info(url)
         file_path = self.setup_file_path_from_url(url)
         if exists(file_path):
-            logger.warning("ALREADY HAVE %s, no need to retrieve" % file_path)
-            return file_path
-        hosts_info, data_info = self.get_info(url)
+            size = stat(file_path).st_size
+            if size != data_info['size']:
+                logger.warning("file size mismatch %s, killing local copy" % file_path)
+                remove(file_path)
+            else:
+                logger.warning("ALREADY HAVE %s, no need to retrieve" % file_path)
+                return file_path
         if self.host_url in hosts_info:
             return hosts_info[self.host_url]
         else:

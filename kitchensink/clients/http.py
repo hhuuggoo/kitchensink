@@ -321,7 +321,8 @@ class Client(object):
         for h in hosts:
             self.bc(md5sum, obj, _queue_name=h)
         self.execute()
-        return self.br()
+        results = self.br()
+        return zip(h, results)
 
 import hashlib
 def md5sum(obj):
