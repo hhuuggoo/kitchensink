@@ -199,14 +199,15 @@ class Catalog(object):
         else:
             host = hosts_info.keys()[0]
             c = Client(host, rpc_name='data', queue_name='data')
-            stream = None
-            try:
-                stream = c._get_data(url).raw
-                retval = self.write(stream, url, is_new=False)
-            finally:
-                if stream:
-                    stream.close()
-            return retval
+            return c._get_data(url).raw
+            # stream = None
+            # try:
+            #     stream = c._get_data(url).raw
+            #     retval = self.write(stream, url, is_new=False)
+            # finally:
+            #     if stream:
+            #         stream.close()
+            # return retval
 
     def get_info(self, url):
         hosts_info = self.conn.hgetall(self.path_key(url))
