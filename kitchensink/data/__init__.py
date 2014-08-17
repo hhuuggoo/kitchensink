@@ -302,16 +302,23 @@ class RemoteData(object):
         if self._local_path:
             with open(self._local_path) as f:
                 raw = f.read()
+            logger.info("reading %s bytes for %s from %s",
+                        len(raw), self.data_url, self._local_path)
         else:
             raw = self._get()
             if isinstance(raw, string_types):
                 name = raw
                 with open(name, "r") as f:
                     raw = f.read()
+                    logger.info("reading %s bytes for %s from %s",
+                                len(raw), self.data_url, name)
             else:
                 try:
                     stream = raw
                     raw = stream.read()
+                    logger.info("reading %s bytes for %s from %s",
+                                len(raw), self.data_url, "stream")
+
                 finally:
                     stream.close()
         self._raw = raw
