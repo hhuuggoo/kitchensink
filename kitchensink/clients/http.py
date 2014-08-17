@@ -319,9 +319,9 @@ class Client(object):
         hosts = set(active_hosts).intersection(set(info.keys()))
         obj = du(url)
         for h in hosts:
-            c.bc(md5sum, obj, _queue_name=h)
-        c.execute()
-        return c.br()
+            self.bc(md5sum, obj, _queue_name=h)
+        self.execute()
+        return self.br()
 
 import hashlib
 def md5sum(obj):
