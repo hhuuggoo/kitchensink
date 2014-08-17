@@ -291,6 +291,29 @@ class Client(object):
         self.execute()
         self.bulk_results()
 
+    def move_data_pattern(self, pattern, from_host, to_host=None):
+        urls = self.path_search(pattern)
+        info = self.data_info(urls)
+        active_hosts, data_info = info
+
+        candidates = [x for x in active_hosts if x != from_host]
+        for url, (host_info, metadata) in data_info.items():
+            if to_host is None:
+                to_host = random.choice(candidates)
+            if from_host in host_info and len(host_info) == 1:
+                self.bc('chunked_copy', url, metadata.get('size'), from_host, _queue_name=to_host)
+        self.execute()
+        self.br()
+
+        info = self.data_info(urls)
+        active_hosts, data_info = info
+        for url, (host_info, metadata) in data_info.items():
+            if from_host in host_info and len(host_info) >= 2:
+                self.bc('delete', url, _queue_name=from_host, _rpc_name='data')
+        self.execute()
+        self.br()
+
+
     def move_data(self, url, length, from_host, to_host=None):
         active_hosts = self.call('hosts', _async=False,
                                  _rpc_name="data",
@@ -322,7 +345,7 @@ class Client(object):
             self.bc(md5sum, obj, _queue_name=h)
         self.execute()
         results = self.br()
-        return zip(h, results)
+        return zip(hosts, results)
 
 import hashlib
 def md5sum(obj):

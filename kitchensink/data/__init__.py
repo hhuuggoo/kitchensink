@@ -178,8 +178,10 @@ class Catalog(object):
             logger.info ("read %s of %s from %s to %s" % (data_read, length,
                                                           host_url, settings.host_url))
             if gevent:
+                logger.info("gevent sleep")
                 gevent.sleep(0)
             if len(data) == 0:
+                logger.info("real sleep")
                 time.sleep(1.0)
             yield data
 
