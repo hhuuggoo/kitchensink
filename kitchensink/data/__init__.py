@@ -328,11 +328,11 @@ class RemoteData(object):
                 self._obj = obj
                 return obj
             except Exception as e:
-                logger.error("error with %s on %s" %
+                logger.error("error with %s on %s",
                              self.data_url,
                              settings.data_rpc_url)
                 logger.exception(e)
-
+                raise
     def delete(self):
         raise NotImplementedError
 

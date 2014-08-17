@@ -220,8 +220,7 @@ class Client(object):
                     else:
                         print (msg['msg'])
                 if metadata['status'] == Status.FAILED:
-                    for job_id in to_query:
-                        self.cancel(job_id)
+                    self.bulk_cancel(to_query)
                     raise Exception(data)
                 elif metadata['status'] == Status.FINISHED:
                     results[job_id] = data
