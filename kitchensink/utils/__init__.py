@@ -51,6 +51,7 @@ def send_file(file_or_buffer):
     return Response(generator(),
                     mimetype='application/octet-stream')
 def setup_loghandlers(level=None):
+    logging.getLogger("requests.packages.urllib3.connectionpool").setLevel(logging.WARNING)
     if not logging._handlers:
         dictConfig({
             'version': 1,

@@ -2,6 +2,7 @@ from __future__ import print_function
 import time
 import random
 import datetime as dt
+import logging
 
 import six
 import requests
@@ -15,6 +16,7 @@ from ..utils import make_query_url
 from ..errors import KitchenSinkError
 from .. import settings
 
+logger = logging.getLogger(__name__)
 class Client(object):
     def __init__(self, url, rpc_name='default',
                  queue_name="default",
@@ -211,6 +213,7 @@ class Client(object):
             result = requests.post(raw_url,
                                    data={'job_ids' : ",".join(to_query)},
             )
+            print (result)
             metadata_data_pairs = unpack_results(result.content)
             for job_id, (metadata, data) in zip(to_query, metadata_data_pairs):
                 for msg in metadata.get('msgs', []):
@@ -347,6 +350,9 @@ class Client(object):
         self.execute()
         results = self.br()
         return zip(hosts, results)
+
+    def cancel_all(self):
+        return self.call('cancel_all', _rpc_name='admin', _async=False)
 
 import hashlib
 def md5sum(obj):

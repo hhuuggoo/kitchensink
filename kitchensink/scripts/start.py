@@ -21,6 +21,7 @@ from werkzeug.serving import run_with_reloader
 from kitchensink.utils import parse_redis_connection
 from kitchensink.rpc.server import make_app, run as runserver, register_rpc
 from kitchensink.data.datarpc import make_rpc
+from kitchensink.admin import make_rpc
 from kitchensink.data import Catalog
 import kitchensink.settings as settings
 FORMAT = "%(created)f:%(name)s:%(message)s"
@@ -112,6 +113,8 @@ def run(redis_connection, node_url, node_port,
     register_rpc(data_rpc, 'data')
     default_rpc = make_rpc()
     register_rpc(default_rpc, 'default')
+    admin = make_rpc()
+    register_rpc(admin, 'admin')
     if module:
         mod = __import__(module)
     runserver()
