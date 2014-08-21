@@ -189,8 +189,16 @@ class KitchenSinkRedisQueue(Queue):
             job.save()
         return job
 
-    @classmethod
+    @classmethod(cls, queues, timeout, connection=None):
     def dequeue_any(cls, queues, timeout, connection=None):
+        while True:
+            #exits on timeout error
+            result = cls._dequeue_any(queues, timeout, connection=connection)
+            if result is not None:
+                return result
+
+    @classmethod
+    def _dequeue_any(cls, queues, timeout, connection=None):
         """Class method returning the job_class instance at the front of the given
         set of Queues, where the order of the queues is important.
 
@@ -308,6 +316,7 @@ class KitchenSinkWorker(Worker):
             self.log.warning('Result will never expire, clean up result key manually.')
 
         return True
+
 
 def current_job_id():
     """Returns the Job instance that is currently being executed.  If this
