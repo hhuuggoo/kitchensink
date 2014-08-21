@@ -36,7 +36,7 @@ def delete(url):
     settings.catalog.delete(url)
 
 def make_rpc():
-    rpc = RPC()
+    rpc = RPC(allow_arbitrary=False)
     rpc.register_function(get_info)
     rpc.register_function(get_info_bulk)
     rpc.register_function(search_path)
