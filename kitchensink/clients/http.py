@@ -114,8 +114,7 @@ class Client(object):
                                     self.data_threshold)
                 #strip off size information
                 queue_names = [x[0] for x in queue_names]
-                print (queue_names)
-                print ("finished routing", time.time())
+                logger.debug("routing to %s", queue_names)
             else:
                 queue_names = [self.queue_name]
         fmt = self.fmt

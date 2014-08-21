@@ -214,14 +214,14 @@ class KitchenSinkRedisQueue(Queue):
         that means another worker has it
         """
         if not cls.job_class.claim_for(connection, job_id, queue_key):
-            return cls.dequeue_any(queues, timeout, connection=connection)
+            return None
         queue = cls.from_queue_key(queue_key, connection=connection)
         try:
             job = cls.job_class.fetch(job_id, connection=connection)
         except NoSuchJobError:
             # Silently pass on jobs that don't exist (anymore),
             # and continue by reinvoking the same function recursively
-            return cls.dequeue_any(queues, timeout, connection=connection)
+            return None
         except UnpickleError as e:
             # Attach queue information on the exception for improved error
             # reporting
