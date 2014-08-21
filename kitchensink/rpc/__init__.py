@@ -61,7 +61,7 @@ class RPC(object):
         self.task_queue = queue
 
     def call(self, msg):
-        logger.info("CALL")
+        logger.debug("CALL")
         metadata = unpack_rpc_metadata(msg)
         #metadata
         result_fmt = metadata.get('result_fmt', 'cloudpickle')
@@ -169,11 +169,11 @@ class OutputThread(threading.Thread):
 
 
 def _execute_msg(msg):
-    logger.info("EXECUTING")
+    logger.debug("EXECUTING")
     st = time.time()
     msg_format, metadata, data = unpack_rpc_call(msg)
     ed = time.time()
-    logger.info("UNPACKED %s", (ed - st))
+    logger.debug("UNPACKED %s", (ed - st))
     func = data['func']
     memoize_url = None
     if hasattr(func, "ks_memoize") and func.ks_memoize and settings.catalog:
@@ -183,19 +183,19 @@ def _execute_msg(msg):
         memoize_url = "memoize/%s" % key
         hosts_info, data_info = settings.catalog.get_info(memoize_url)
         if len(hosts_info) > 0:
-            logger.info("retrieving memoized")
+            logger.debug("retrieving memoized")
             return du(memoize_url).obj()
 
     args = data.get('args', [])
     kwargs = data.get('kwargs', {})
     result = func(*args, **kwargs)
     if hasattr(func, 'ks_remote') and func.ks_remote:
-        logger.info("METADATA %s", metadata)
+        logger.debug("METADATA %s", metadata)
         result.save(prefix=metadata.get('prefix', ''))
     if memoize_url:
-        logger.info("saving memoized")
+        logger.debug("saving memoized")
         do(result).save(url=memoize_url)
-    logger.info("DONE EXECUTING")
+    logger.debug("DONE EXECUTING")
     return result
 
 def patch_loggers(output):
@@ -218,9 +218,9 @@ def unpatch_loggers(patched):
 def execute_msg(msg, intermediate_results=False):
 
     if not current_job_id() or not intermediate_results:
-        logger.info("**jobid %s", current_job_id())
+        logger.debug("**jobid %s", current_job_id())
         return _execute_msg(msg)
-    logger.info("intermediate_results %s", intermediate_results)
+    logger.debug("intermediate_results %s", intermediate_results)
     output = tempfile.NamedTemporaryFile(prefix="ks-").name
     output_thread = OutputThread()
     output_thread.filename = output

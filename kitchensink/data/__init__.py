@@ -169,19 +169,16 @@ class Catalog(object):
         while True:
             if data_read == length:
                 break
-            #logger.info("%s, %s, %s", url, data_read, settings.chunk_size)
             data = c._get_data(url, data_read, settings.chunk_size)
             if data.status_code != 200:
                 raise KitchenSinkError("http error")
             data = data.raw.read()
             data_read += len(data)
-            logger.info ("read %s of %s from %s to %s" % (data_read, length,
+            logger.debug ("read %s of %s from %s to %s" % (data_read, length,
                                                           host_url, settings.host_url))
             if gevent:
-                logger.info("gevent sleep")
                 gevent.sleep(0)
             if len(data) == 0:
-                logger.info("real sleep")
                 time.sleep(1.0)
             yield data
 
@@ -194,7 +191,7 @@ class Catalog(object):
                 logger.warning("file size mismatch %s, killing local copy" % file_path)
                 remove(file_path)
             else:
-                logger.warning("ALREADY HAVE %s, no need to retrieve" % file_path)
+                logger.debug("ALREADY HAVE %s, no need to retrieve" % file_path)
                 return file_path
         if self.host_url in hosts_info:
             return hosts_info[self.host_url]
@@ -266,7 +263,7 @@ class RemoteData(object):
         return resp.raw
 
     def _put(self, f, data_type='object', fmt="cloudpickle"):
-        logger.info("posting %s to %s", self.data_url, self.rpc_url)
+        logger.debug("posting %s to %s", self.data_url, self.rpc_url)
         f.seek(0)
         c = self.client(self.rpc_url)
         return c._put_data(self.data_url, f, data_type=data_type, fmt=fmt)
@@ -310,7 +307,7 @@ class RemoteData(object):
         if self._local_path:
             with open(self._local_path) as f:
                 raw = f.read()
-            logger.info("reading %s bytes for %s from %s",
+            logger.debug("reading %s bytes for %s from %s",
                         len(raw), self.data_url, self._local_path)
         else:
             raw = self._get()
@@ -318,13 +315,13 @@ class RemoteData(object):
                 name = raw
                 with open(name, "r") as f:
                     raw = f.read()
-                    logger.info("reading %s bytes for %s from %s",
+                    logger.debug("reading %s bytes for %s from %s",
                                 len(raw), self.data_url, name)
             else:
                 try:
                     stream = raw
                     raw = stream.read()
-                    logger.info("reading %s bytes for %s from %s",
+                    logger.debug("reading %s bytes for %s from %s",
                                 len(raw), self.data_url, "stream")
 
                 finally:

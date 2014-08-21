@@ -26,17 +26,20 @@ def chunks(l, n):
     for i in range(0, len(l), n):
         yield l[i:i+n]
 
-def workflow(c, func, data=[]):
+def workflow(c, func, data=[], force=True):
     compute = False
-    for prefix, threshold in data:
-        num_objs = len(c.path_search(prefix))
-        if num_objs < threshold:
-            logger.info("%s objs found for prefix %s recomputing", num_objs, prefix)
-            compute = True
-            break
-        else:
-            logger.info("%s objs found for prefix %s no need to compute",
-                        num_objs, prefix)
+    if force:
+        compute = True
+    else:
+        for prefix, threshold in data:
+            num_objs = len(c.path_search(prefix))
+            if num_objs < threshold:
+                logger.info("%s objs found for prefix %s recomputing", num_objs, prefix)
+                compute = True
+                break
+            else:
+                logger.info("%s objs found for prefix %s no need to compute",
+                            num_objs, prefix)
     if compute:
         logger.info("computing")
         for prefix, threshold in data:
