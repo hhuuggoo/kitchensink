@@ -151,7 +151,6 @@ class Client(object):
             data.append(msg)
         msg = pack_msg(*data, fmt=["raw" for x in range(len(data))])
         url = self.url + "rpc/bulkcall/"
-        print ("POST",dt.datetime.now().isoformat())
         result = requests.post(url, data=msg,
                                headers={'content-type' : 'application/octet-stream'})
         msg_format, messages = unpack_msg(result.content, override_fmt='raw')
@@ -213,12 +212,11 @@ class Client(object):
             result = requests.post(raw_url,
                                    data={'job_ids' : ",".join(to_query)},
             )
-            print (result)
             metadata_data_pairs = unpack_results(result.content)
             for job_id, (metadata, data) in zip(to_query, metadata_data_pairs):
                 for msg in metadata.get('msgs', []):
                     if msg['type'] == 'status':
-                        print (job_id, msg['status'])
+                        pass
                     else:
                         print (msg['msg'])
                 if metadata['status'] == Status.FAILED:
