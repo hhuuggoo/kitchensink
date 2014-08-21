@@ -189,7 +189,7 @@ class KitchenSinkRedisQueue(Queue):
             job.save()
         return job
 
-    @classmethod(cls, queues, timeout, connection=None):
+    @classmethod
     def dequeue_any(cls, queues, timeout, connection=None):
         while True:
             #exits on timeout error
