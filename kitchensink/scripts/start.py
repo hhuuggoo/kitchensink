@@ -21,8 +21,8 @@ from werkzeug.serving import run_with_reloader
 from kitchensink.utils import parse_redis_connection
 from kitchensink.rpc.server import make_app, run as runserver, register_rpc
 from kitchensink.rpc import RPC
-from kitchensink.data.datarpc import make_data_rpc
-from kitchensink.admin import make_admin_rpc
+from kitchensink.data.datarpc import make_rpc as make_data_rpc
+from kitchensink.admin import make_rpc as make_admin_rpc
 from kitchensink.data import Catalog
 import kitchensink.settings as settings
 FORMAT = "%(created)f:%(name)s:%(message)s"
