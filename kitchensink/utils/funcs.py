@@ -26,7 +26,7 @@ def chunks(l, n):
     for i in range(0, len(l), n):
         yield l[i:i+n]
 
-def workflow(c, func, data=[], force=True):
+def workflow(c, func, data=[], force=False):
     compute = False
     if force:
         compute = True
