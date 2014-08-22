@@ -1,8 +1,10 @@
 from __future__ import print_function
 try:
+    import gevent
     import gevent.monkey
     gevent.monkey.patch_all()
 except ImportError:
+    gevent = False
     pass
 from argparse import ArgumentParser
 import os
@@ -118,7 +120,7 @@ def run(redis_connection, node_url, node_port,
     register_rpc(admin, 'admin')
     if module:
         mod = __import__(module)
-    runserver()
+    runserver(gevent=gevent)
     close_all()
 
 
