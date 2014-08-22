@@ -260,7 +260,7 @@ class RemoteData(object):
         return resp.raw
 
     def _put(self, f, data_type='object', fmt="cloudpickle"):
-        logger.debug("posting %s to %s", self.data_url, self.rpc_url)
+        logger.info("posting %s to %s", self.data_url, self.rpc_url)
         f.seek(0)
         c = self.client(self.rpc_url)
         return c._put_data(self.data_url, f, data_type=data_type, fmt=fmt)
