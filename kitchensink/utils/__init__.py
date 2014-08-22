@@ -59,7 +59,7 @@ def setup_loghandlers(level=None):
 
             'formatters': {
                 'console': {
-                    'format' : "%(created)f:%(name)s:%(message)s"
+                    'format' : "%(created)f:%(process)d:%(name)s:%(message)s"
                 },
             },
 
