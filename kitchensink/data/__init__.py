@@ -188,15 +188,12 @@ class Catalog(object):
         if exists(file_path):
             size = stat(file_path).st_size
             if size != data_info['size']:
-                logger.warning("file size mismatch %s, killing local copy" % file_path)
                 remove(file_path)
-            else:
-                logger.debug("ALREADY HAVE %s, no need to retrieve" % file_path)
-                return file_path
         if self.host_url in hosts_info:
             return hosts_info[self.host_url]
         else:
             host = hosts_info.keys()[0]
+            logger.info("retrieving %s from %s", url, host)
             c = Client(host, rpc_name='data', queue_name='data')
             return c._get_data(url).raw
             # stream = None
