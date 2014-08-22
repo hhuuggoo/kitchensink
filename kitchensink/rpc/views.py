@@ -124,6 +124,7 @@ def get_data(path):
 @rpcblueprint.route("/data/<path:path>/", methods=['POST'])
 def put_data(path):
     #check auth here if we're doing auth
+    logger.info("PUT")
     fstorage = request.files['data']
     data_type = request.values.get('data_type', 'object')
     fmt = request.values.get('fmt', 'cloudpickle')
