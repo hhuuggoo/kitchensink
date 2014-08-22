@@ -283,7 +283,10 @@ class KitchenSinkWorker(Worker):
             try:
                 self.log.info("with pipeline")
                 with self.death_penalty_class(job.timeout or self.queue_class.DEFAULT_TIMEOUT):
+                    st = time.time()
                     rv = job.perform()
+                    ed = time.time()
+                    logger.info("%s completed in %s", job.id, ed-st)
                 # Pickle the result in the same try-except block since we need to
                 # use the same exc handling when pickling fails
                 job._result = rv
