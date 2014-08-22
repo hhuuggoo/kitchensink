@@ -1,8 +1,12 @@
 import atexit
 import time
 from threading import Thread
-
+try:
+    import gevent
+except:
+    gevent = None
 import redis
+import redis.connection
 from rq import Queue, Connection
 
 from .app import app, rpcblueprint
@@ -21,6 +25,8 @@ def get_queue(name):
 def make_app(redis_connection_obj, port, host_url, datadir):
     app.register_blueprint(rpcblueprint, url_prefix="/rpc")
     app.port = port
+    if gevent:
+        redis.connection.socket = gevent.socket
     rpcblueprint.r = redis.StrictRedis(host=redis_connection_obj['host'],
                                        port=redis_connection_obj['port'],
                                        db=redis_connection_obj['db'])
