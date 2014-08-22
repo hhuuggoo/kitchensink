@@ -47,7 +47,6 @@ def nonblock_popall(connection, keys):
     return outputs
 
 def pop(connection, keys, timeout=5.0):
-    logger.info("pop %s", timeout)
     msg = connection.blpop(keys, timeout=timeout)
     if msg is None:
         return None
@@ -77,7 +76,9 @@ def pull_intermediate_results(connection, keys, timeout=5):
     messages = _grab_all_messages(connection, keys)
     #if timeout is 0, then we want instant return, do not do blocking call
     if not messages and timeout != 0:
+        logger.info("nonblock pop got nothing", timeout)
         messages =  _block_and_grab_all_messages(connection, keys, timeout=timeout)
+        logger.info("block pop got %s messages", len(messages))
     messages = [(x[0].split(":")[2], x[1]) for x in messages]
     return messages
 
