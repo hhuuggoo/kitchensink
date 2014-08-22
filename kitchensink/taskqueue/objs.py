@@ -93,12 +93,12 @@ class KitchenSinkJob(Job):
         st = time.time()
         super(KitchenSinkJob, self).refresh()
         ed = time.time()
-        logger.info("REFRESH %s", ed-st)
+        logger.debug("REFRESH %s", ed-st)
     def save(self, *args, **kwargs):
         st = time.time()
         super(KitchenSinkJob, self).save(*args, **kwargs)
         ed = time.time()
-        logger.info("SAVE %s", ed-st)
+        logger.debug("SAVE %s", ed-st)
     @property
     def intermediate_results_key(self):
         return self.key + ":" + "intermediate_results"
@@ -212,7 +212,6 @@ class KitchenSinkRedisQueue(Queue):
         """
         queue_keys = [q.key for q in queues]
         result = cls.lpop(queue_keys, timeout, connection=connection)
-        logger.info("DEQUEUED")
         if result is None:
             return None
         queue_key, job_id = map(as_text, result)

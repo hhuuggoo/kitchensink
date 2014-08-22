@@ -81,7 +81,7 @@ class TaskQueue(object):
             else:
                 results[job_id] = None
         ed = time.time()
-        log.info("queue BULKSTATUS %s", ed - st)
+        log.debug("queue BULKSTATUS %s", ed - st)
         return [(metadata[job_id], results[job_id]) for job_id in job_ids]
 
     def status(self, job_id, timeout=None):
