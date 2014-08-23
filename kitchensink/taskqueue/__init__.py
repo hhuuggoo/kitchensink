@@ -22,8 +22,7 @@ class TaskQueue(object):
             self.queues[name] = queue
         return self.queues[name]
 
-    def enqueue(self, queue_names, func, args, kwargs, metadata={}, interval=0.01):
-        st = time.time()
+    def make_job(self, func, args, kwargs, metadata={}):
         job = KitchenSinkJob.create(
             func, args, kwargs, connection=self.conn,
             result_ttl=None, status=Status.QUEUED,
@@ -31,6 +30,11 @@ class TaskQueue(object):
         for k,v in metadata.items():
             job.meta[k] = v
         job.save()
+        return job
+
+    def enqueue(self, queue_names, func, args, kwargs, metadata={}):
+        st = time.time()
+        job = self.make_job(func, args, kwargs, metadata=metadata)
         for queue_name in queue_names:
             queue = self.get_queue(queue_name)
             queue.enqueue_job(job)

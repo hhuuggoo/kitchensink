@@ -64,6 +64,7 @@ def parser():
     #mandatory
     p.add_argument('--datadir',
                    help='data directory',
+                   default='tmp'
     )
     p.add_argument('--module',
                    help='(optional) module with rpc functions',

@@ -45,12 +45,21 @@ def bulkcall():
     logger.info("unpack, msg %f", ed-st)
     calls = [(messages[i], messages[i+1]) for i in range(0, len(messages), 2)]
     results = []
-    for rpcname, msg in calls:
+    msg_index = {}
+    msgs_by_rpc = {}
+    all_results = {}
+    for idx, (rpcname, msg) in enumerate(calls):
+        msgs_by_rpc.setdefault(rpcname, []).append((idx, msg))
+    for rpcname in msgs_by_rpc.keys():
         rpc = rpcblueprint.rpcs[rpcname]
-        result = rpc.call(msg)
-        results.append(result)
-    result = pack_msg(*results, fmt=['raw' for x in range(len(results))])
-    logger.info("DONE BULKPOST, call")
+        temp = msgs_by_rpc[rpcname]
+        idxs = [x[0] for x in temp]
+        msgs = [x[1] for x in temp]
+        results = rpc.bulk_call(msgs)
+        for r, idx, msg in zip(results, idxs, msgs):
+            all_results[idx] = r
+    all_results = [all_results[x] for x in range(len(calls))]
+    result = pack_msg(*all_results, fmt=['raw' for x in range(len(all_results))])
     return current_app.response_class(response=result,
                                       status=200,
                                       mimetype='application/octet-sream')

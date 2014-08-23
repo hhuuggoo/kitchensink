@@ -60,6 +60,65 @@ class RPC(object):
     def setup_queue(self, queue):
         self.task_queue = queue
 
+    def bulk_call(self, msgs):
+        async_jobs = {}
+        async_job_metadata = {}
+        async_queues = {}
+        results = {}
+
+        for idx, msg in enumerate(msgs):
+            metadata = unpack_rpc_metadata(msg)
+            result_fmt = metadata.get('result_fmt', 'cloudpickle')
+            queue_names = metadata.get('queue_names', ['default'])
+            async = metadata.get('async', True)
+            auth = metadata.get('auth', '')
+            if auth and self.auth:
+                if not self.auth(auth):
+                    raise UnauthorizedException
+            try:
+                if async:
+                    fmt = metadata['result_fmt']
+                    func_string = metadata.get('func_string')
+                    if func_string is not None:
+                        func = self.resolve_function(func_string)
+                        if func is None:
+                            raise KitchenSinkError("Unknownn function %s" % func_string)
+                        msg = append_rpc_data(msg, {'func' : func}, fmt='cloudpickle')
+                    args = [msg]
+                    kwargs = {'intermediate_results' : metadata['intermediate_results']}
+                    job = self.task_queue.make_job(execute_msg,
+                                             args, kwargs,
+                                             metadata=metadata)
+                    async_jobs[idx] = job
+                    async_job_metadata[idx] = {'result_fmt' : fmt, 'job_id' : job.id}
+                    async_queues[idx] = queue_names
+                else:
+                    metadata, result =  self.call_instant(msg, metadata)
+                    results[idx] = pack_result(metadata, result, fmt=result_fmt)
+            except Exception as e:
+                exc_info = traceback.format_exc()
+                metadata = {'result_fmt' : result_fmt,
+                            'status' : Status.FAILED,
+                            'error' : exc_info}
+                result = None
+                results[idx] = pack_result(metadata, result, fmt=result_fmt)
+        while async_queues:
+            for idx in range(len(msgs)):
+                queues = async_queues.get(idx)
+                if not queues:
+                    continue
+                job = async_jobs.get(idx, None)
+                queue = queues.pop(0)
+                self.task_queue.get_queue(queue).enqueue_job(job)
+                if not queues:
+                    del async_queues[idx]
+        for k,v in async_jobs.iteritems():
+            metadata = async_job_metadata[k]
+            metadata['status'] = v.get_status()
+            results[k] = pack_result(metadata, None, fmt=metadata['result_fmt'])
+        results = [results[x] for x in range(len(msgs))]
+        return results
+
     def call(self, msg):
         logger.debug("CALL")
         metadata = unpack_rpc_metadata(msg)
