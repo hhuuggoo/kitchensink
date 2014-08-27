@@ -262,8 +262,12 @@ class RemoteData(object):
     def _put(self, f, data_type='object', fmt="cloudpickle"):
         logger.debug("posting %s to %s", self.data_url, self.rpc_url)
         f.seek(0)
-        c = self.client(self.rpc_url)
-        return c._put_data(self.data_url, f, data_type=data_type, fmt=fmt)
+        if settings.catalog:
+            settings.catalog.write(f, self.data_url, is_new=True, data_type=data_type,
+                                   fmt=self.fmt)
+        else:
+            c = self.client(self.rpc_url)
+            return c._put_data(self.data_url, f, data_type=data_type, fmt=fmt)
 
     def local_path(self, path=None):
         """provides a path to a local file that contains the
