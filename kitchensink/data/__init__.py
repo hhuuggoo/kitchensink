@@ -101,7 +101,6 @@ class Catalog(object):
             else:
                 self.init_addition(file_path, url)
         if not exists(file_path):
-            print ("WRITING", file_path)
             with open(file_path, "wb+") as f:
                 self._raw_write(finput, f)
         if is_new:
