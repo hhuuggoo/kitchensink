@@ -192,3 +192,12 @@ c.bulk_results()
 - Workers proceed to pull these jobs off of redis.  When a worker receives a job, it also sets a global lock for the job "claiming it" so that any other worker who pops that job off of the queue will discard it.  The worker executes the function, and stores the result in redis.  While the function executes, intermediate messages 
 may be pushed into the intermediate results queue for the job.  This is task start, stop, fail, and any stdout
 -  When `bulk_results` Is called, the client begins polling the server for results.  Every time the client polls the server, the server executes a redis blocking operation on the intermediate results queues for jobs.  This http request returns as soon as any data is available, or times out (5 second timeout by default) if nothing is available.  Since task start/stop are inside this, clients get prompt notification of task completion during this polling process.  the `bulk_results` will query for all job ids at first, and then as results come in, it will truncate the list of jobs it is asking for from the server.  During this `bulk_results` polling process, if a task is completed, it's result is returned to the client in the response, and the job (and it's results) are deleted from redis
+
+#### Issues
+
+- reliability - we don't restart processes, if processes segfault, it is currently up to the user to restart them.  This can be handled by using things like supervisord in deployment
+- reliability - we don't detect segfaults, if tasks die, the client polls for their result forever
+- reliability - we don't do much to guarantee consistency across the distributed file system, if something goes wrong it is possible to have 2 copies of the same resource which are different
+- reliability - we don't protect hosts from running out of disk space
+- reliability - we don't protect redis from running out of ram
+
