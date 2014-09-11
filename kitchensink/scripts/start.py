@@ -27,6 +27,8 @@ from kitchensink.data.datarpc import make_rpc as make_data_rpc
 from kitchensink.admin import make_rpc as make_admin_rpc
 from kitchensink.data import Catalog
 import kitchensink.settings as settings
+from kitchensink.blaze import make_rpc as make_blaze_rpc
+
 FORMAT = "%(created)f:%(name)s:%(message)s"
 comments = \
 """
@@ -119,6 +121,8 @@ def run(redis_connection, node_url, node_port,
     register_rpc(default_rpc, 'default')
     admin = make_admin_rpc()
     register_rpc(admin, 'admin')
+    blaze = make_blaze_rpc()
+    register_rpc(blaze, 'blaze')
     if module:
         mod = __import__(module)
     runserver(gevent=gevent)
