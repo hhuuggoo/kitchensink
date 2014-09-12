@@ -1,7 +1,9 @@
 from ..rpc import RPC
+from blaze import compute as c
+from blaze.compute import chunks
 
 def compute(expr, rd):
-    from blaze import compute as c
+
     return c(expr, rd.obj())
 
 def make_rpc():

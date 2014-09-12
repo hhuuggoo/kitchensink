@@ -7,6 +7,7 @@ from kitchensink import settings
 from kitchensink.utils import parse_redis_connection
 from kitchensink.taskqueue.objs import KitchenSinkRedisQueue, KitchenSinkWorker
 from kitchensink.data import Catalog
+#import kitchensink.blaze
 comments = \
 """
 kitchen sink RPC Server

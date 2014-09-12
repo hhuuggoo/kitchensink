@@ -352,6 +352,13 @@ class Client(object):
     def cancel_all(self):
         return self.call('cancel_all', _rpc_name='admin', _async=False)
 
+    def map(self, func, args):
+        #return map(func, args)
+        for a in args:
+            self.bc(func, a)
+        self.execute()
+        return self.br()
+
 import hashlib
 def md5sum(obj):
     path = obj.local_path()
