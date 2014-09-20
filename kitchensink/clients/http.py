@@ -354,6 +354,7 @@ class Client(object):
 
     def map(self, func, args):
         #return map(func, args)
+        print (args)
         for a in args:
             self.bc(func, a)
         self.execute()

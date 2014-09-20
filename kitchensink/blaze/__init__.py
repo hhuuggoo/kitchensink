@@ -1,4 +1,5 @@
 from ..rpc import RPC
+from blaze import Table, compute
 from blaze import compute as c
 from blaze.compute import chunks
 
