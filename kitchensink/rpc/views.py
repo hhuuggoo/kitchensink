@@ -146,15 +146,15 @@ def put_data(path):
         exc_info = traceback.format_exc()
         return jsonify(error=exc_info)
 
-@rpcblueprint.route("/chunkeddata/<path:path>/", methods=['GET'])
-def get_chunked_data(path):
-    #check auth here if we're doing auth
-    offset = int(request.values['offset'])
-    length = int(request.values['offset'])
-    local_path = settings.catalog.get_file_path(path)
-    with open(local_path, "rb") as f:
-        f.seek(offset)
-        data = f.read(local_path, settings.chunk_size)
-    return current_app.response_class(response=data,
-                                      status=200,
-                                      mimetype='application/octet-sream')
+# @rpcblueprint.route("/chunkeddata/<path:path>/", methods=['GET'])
+# def get_chunked_data(path):
+#     #check auth here if we're doing auth
+#     offset = int(request.values['offset'])
+#     length = int(request.values['offset'])
+#     local_path = settings.catalog.get_file_path(path)
+#     with open(local_path, "rb") as f:
+#         f.seek(offset)
+#         data = f.read(local_path, settings.chunk_size)
+#     return current_app.response_class(response=data,
+#                                       status=200,
+#                                       mimetype='application/octet-sream')

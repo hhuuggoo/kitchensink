@@ -61,11 +61,15 @@ class RPC(object):
         self.task_queue = queue
 
     def bulk_call(self, msgs):
+        """TODO: refactor this so it's less complicated.
+        what's going on is we're going through call1, call2, call3
+        and then routing call1, call2, call3 to the first priority host
+        and then call1, call2, call3 to the second priority host, etc..
+        """
         async_jobs = {}
         async_job_metadata = {}
         async_queues = {}
         results = {}
-
         for idx, msg in enumerate(msgs):
             metadata = unpack_rpc_metadata(msg)
             result_fmt = metadata.get('result_fmt', 'cloudpickle')
@@ -122,7 +126,6 @@ class RPC(object):
     def call(self, msg):
         logger.debug("CALL")
         metadata = unpack_rpc_metadata(msg)
-        #metadata
         result_fmt = metadata.get('result_fmt', 'cloudpickle')
         queue_names = metadata.get('queue_names', ['default'])
         async = metadata.get('async', True)
@@ -195,18 +198,6 @@ class RPC(object):
         self.functions[name] = func
 
 
-# def wrap(func):
-#     def wrapper(msg):
-#         metadata, data = unpack_msg(msg)
-#         args = data.get('args', [])
-#         kwargs = data.get('kwargs', {})
-#         result = func(*args, **kwargs)
-#         #postprocess results here
-#         return result
-#     wrapper.__name__ = func.__name__
-#     wrapper.__module__ = func.__module__
-#     wrapper.__name__ = func.__name__
-#     return wrapper
 import tempfile
 class OutputThread(threading.Thread):
     interval = 0.001
@@ -235,6 +226,8 @@ def _execute_msg(msg):
     logger.debug("UNPACKED %s", (ed - st))
     func = data['func']
     memoize_url = None
+
+    ## some code in place for memoization decorator(experimental)
     if hasattr(func, "ks_memoize") and func.ks_memoize and settings.catalog:
         m = hashlib.md5()
         m.update(msg)
@@ -248,9 +241,13 @@ def _execute_msg(msg):
     args = data.get('args', [])
     kwargs = data.get('kwargs', {})
     result = func(*args, **kwargs)
+
+    ## some code in place for @remote decorator(experimental)
     if hasattr(func, 'ks_remote') and func.ks_remote:
         logger.debug("METADATA %s", metadata)
         result.save(prefix=metadata.get('prefix', ''))
+
+    ## some code in place for memoization decorator(experimental)
     if memoize_url:
         logger.debug("saving memoized")
         do(result).save(url=memoize_url)

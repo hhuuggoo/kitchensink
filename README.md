@@ -3,12 +3,15 @@
 Started to build an RPC server, ended up throwing in everything but the kitchen sink
 
 The goal of this project is to make RPC easy to use - especially for people doing interactive work.  Here are the core features
-- passing standard out/ std err back to the client
+- passing standard out/ std err back to the client, so that remote work is almost as seamless as local work
 - passing exceptions back to the client
 - http support for transport
 - pluggable serialiation (json/dill/pickle/cloudpickle)
+  - we do this by having a multi-part message format.  Every message
+  starts with a json block that describes the format and lengths of the blocks that
+  follow
 - support for remote data
-- asynchronous and synchronous calls
+- support for asynchronous and synchronous calls
 - Currently supports both arbitrary function execution (pickled from the client),
   as well as named/registered functions on the server, which can be called
   by strings
@@ -18,16 +21,27 @@ The goal of this project is to make RPC easy to use - especially for people doin
 ### Quickstart
 To get started, you only need one server.
 
-`python -m kitchensink.scripts.start --datadir /tmp/data1 --num-workers 2`
+`python -m kitchensink.scripts.start --datadir /tmp/data1`
 
-That command will auto-start a redis instance for you.  For a production deployment,
-you should start your own server.  Then on each box, start a node with the following
-command
+That command will auto-start a redis instance for you.  And start one worker.  Remote data will be stored in /tmp/data1.  For multiple workers, execute
 
-`python -m kitchensink.scripts.start  --datadir /tmp/data2 --no-redis --node-url=http://localhost:6324/ --num-workers 2 --redis-connection"tcp://localhost:6379?db=9`
+`python -m kitchensink.scripts.start --datadir /tmp/data1 --num-workers 4`
+
+For a production deployment, you should run your own redis instance somewhere
+Then on each box, start a node with a command such as the following.
+
+`python -m kitchensink.scripts.start  --datadir <datadir> --no-redis --node-url=http://<hostname>:<port>/ --num-workers N --redis-connection"tcp://redishost:redisport?db=redisdb`
+
+For example, I usually run
+
+`python -m kitchensink.scripts.start  --datadir /tmp/data --no-redis --node-url=http://localhost:6323/ --num-workers 4 --redis-connection"tcp://localhost:6379?db=9`
 
 Here, the `--no-redis` option tells the process not to autostart a redis instance,
-And the redis connection information is passed in via the command line
+And the redis connection information is passed in via the command line.  The port
+the webserver runs on is informed by the `--node-url` parameter.  However if
+you're doing something like proxying via nginx, or using virtual IPs, you can
+specify the port with `--node-port`.  The important thing is that `--node-url` is
+the http address that can be used to reach this process.
 
 In general configuration is simple - each node only needs to know it's URL, the port
 it should listen on (or it can infer this from the URL), the data directory, and
@@ -35,21 +49,21 @@ the address of the redis instance
 
 
 ### Work remotely as you would locally
-Kitchen sink aims to make remote cluster work as easy as working on your laptop.  For ease of debugging, anything a remote function prints or logged, is redirected to your terminal.  We plan to support turning this off if you're running a large number of jobs, for example, but currently that is not implemented (But easy to do so)
-
+Kitchen sink aims to make remote cluster work as easy as working on your laptop.  For ease of debugging, anything a remote function prints or logged, is redirected to your terminal.  You can turn this off on a per-function call basis by passing in `_intermediate_results=False`.  In the future we will probably turn this on automatically if you are executing a large number of functions
 
 ### Asynchronous execution
 
 The following code will execute a remote function
 
 ```
-from kitchensink.clients.http import Client
-c = Client("http://localhost:6323/", rpc_name='test')
+from kitchensink import setup_client, client
+setup_client("http://localhost:6323/")
+c = client()
 import numpy as np
 def test_func2(x, y):
     return np.dot(x, y)
-jid = c.call(test_func2, np.array([1,2,3,4,5]), np.array([1,2,3,4,5]))
-c.result(jid)
+jobid = c.call(test_func2, np.array([1,2,3,4,5]), np.array([1,2,3,4,5]))
+c.result(jobid)
 
 ```
 
@@ -68,13 +82,9 @@ result = c.call(test_func2, np.array([1,2,3,4,5]), np.array([1,2,3,4,5]), _async
 The kitchen sink system supports server side data.
 
 ```
-from kitchensink import settings
-from kitchensink.clients.http import Client
-from kitchensink.data import RemoteData
-
-settings.setup_client("http://localhost:6323/")
-c = Client(settings.rpc_url)
-
+from kitchensink import setup_client, client, RemoteData, Client
+setup_client("http://localhost:6323/")
+c = client()
 a = RemoteData(obj=dataframe1)
 b = RemoteData(obj=dataframe2)
 a.save()
@@ -112,9 +122,10 @@ on disk relative to the nodes data directory, is the data url.  In redis we stor
 some metadata about the file (just file size for now), and which hosts have it locally.
 
 Support for global data (via NFS or S3) is not yet implemented, and might not ever be.
-Because if you have global data, you don't need to use the remote data infrastructure, you might as well just turn it off.
+Because if you have global data, you don't need to use the remote data infrastructure,
+you might as well just turn it off.
 
-We support very simple data locality.  Whenever a function is executed, which is either using remote data objects in the input arguments (we search function args and kwargs, but not very deeply)  We compute how much data needs to be transfered to each node.  All nodes are sorted to minimize data transfer.   There is also a threshold (currently, 200mb) where we will not allow a task to run on a given node.  The task is queued and in order of priority (based on the data transfer we computed) and the first node that picks it up gets it
+We support very simple data locality.  Whenever a function is executed, which is either using remote data objects in the input arguments (we search function args and kwargs, but not deeply)  We compute how much data needs to be transfered to each node.  All nodes are sorted to minimize data transfer.   There is also a threshold (currently, 200mb) where we will not allow a task to run on a given node.  The task is queued and in order of priority (based on the data transfer we computed) and the first node that picks it up gets it
 
 ### Future Work
 
@@ -136,7 +147,24 @@ We support very simple data locality.  Whenever a function is executed, which is
   - operations for uploading and downloading data
   - also admin operations for cancelling all pending jobs
   - also queries for metadata about remote data objects
--  Each worker can listen on N queues - by default, each worker listens on the data, default, and a host queue (which is specified as the url of the host).  The data queue serves performs long running operations on data (path search).  the default queue handles function calls which are not data-locality routed.  The host queue is used when tasks are intended to be dispatched to a specific host.  If one wanted to setup a special queue (let's say for GPU nodes)  you would need to setup a queue named GPU (to handle non-data local functions), and also setup a GPU-<host_url> named queue, so that we could do data locality based routing on the GPU queue
+-  Each worker can listen on N queues - by default, each worker listens on the data, default, and a host queue (which is specified as the url of the host).  The data queue serves performs long running operations on data (path search).  the default queue handles function calls which are not data-locality routed.  The host queue is used when tasks are intended to be dispatched to a specific host.
+Currently, support for heterogenous queues is a bit limited (but easy to fix).  Right now there is sort of an association between the
+default queue, and the N host queues.  Most jobs would use the default queue if you weren't using data locality, and
+would use the N host queues if you were doing data locality.  Additional user queues would have to be dispatched to separate
+host queues in order to get the desired effect of running multiple queues, but we don't really have this implemented yet.
+
+In more concrete terms
+
+default:
+no data locality : use default
+with data locality : use <host1>, <host2>, ...<hostN>
+
+let's say we wanted to create a GPU queue
+no data locality : use GPU queue
+with data localit : use <host1>-GPU, <host2>-GPU, <host3>-GPU
+
+currently the ability to use another queue, like the GPU queue will not work with data locality
+
 
 #### Task Queue
 -  Based off of python-rq http://python-rq.org/
@@ -180,7 +208,7 @@ c.bulk_results()
 ```
 
 -  When `c.bulk_call` is called, nothing happens, except that the function, args, and kwargs are stored in `client.calls`
--  when c.execute() is called, a few things happen. 
+-  when c.execute() is called, a few things happen.
   -  the args and kwargs are inspected for remote data objects.  A list of data urls is created
   -  we query the server for metadata about each data url (hosts which have them, which hosts are active, file size)
   -  For each function, we determine how much data would need to be copied if it was executed on each host
@@ -189,7 +217,7 @@ c.bulk_results()
   -  All functions, args, kwargs, and host priority lists(in the form of queue names) are sent to the server
 - When the server receives this message, it goes through each function, and enqueues it on the first priority
 - host for each function.  Then we go through the list of funciton calls again, and enqueue it on the second priority host, and then the third priority host, etc..  The important thing is that all functions are enqueued on their first priority hosts before the second priority hosts start being enqueued
-- Workers proceed to pull these jobs off of redis.  When a worker receives a job, it also sets a global lock for the job "claiming it" so that any other worker who pops that job off of the queue will discard it.  The worker executes the function, and stores the result in redis.  While the function executes, intermediate messages 
+- Workers proceed to pull these jobs off of redis.  When a worker receives a job, it also sets a global lock for the job "claiming it" so that any other worker who pops that job off of the queue will discard it.  The worker executes the function, and stores the result in redis.  While the function executes, intermediate messages
 may be pushed into the intermediate results queue for the job.  This is task start, stop, fail, and any stdout
 -  When `bulk_results` Is called, the client begins polling the server for results.  Every time the client polls the server, the server executes a redis blocking operation on the intermediate results queues for jobs.  This http request returns as soon as any data is available, or times out (5 second timeout by default) if nothing is available.  Since task start/stop are inside this, clients get prompt notification of task completion during this polling process.  the `bulk_results` will query for all job ids at first, and then as results come in, it will truncate the list of jobs it is asking for from the server.  During this `bulk_results` polling process, if a task is completed, it's result is returned to the client in the response, and the job (and it's results) are deleted from redis
 
@@ -200,4 +228,3 @@ may be pushed into the intermediate results queue for the job.  This is task sta
 - reliability - we don't do much to guarantee consistency across the distributed file system, if something goes wrong it is possible to have 2 copies of the same resource which are different
 - reliability - we don't protect hosts from running out of disk space
 - reliability - we don't protect redis from running out of ram
-
