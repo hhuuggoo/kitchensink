@@ -2,21 +2,7 @@
 
 Started to build an RPC server, ended up throwing in everything but the kitchen sink
 
-The goal of this project is to make RPC easy to use - especially for people doing interactive work.  Here are the core features
-- passing standard out/ std err back to the client, so that remote work is almost as seamless as local work
-- passing exceptions back to the client
-- http support for transport
-- pluggable serialization (json/dill/pickle/cloudpickle)
-  - we do this by having a multi-part message format.  Every message
-  starts with a json block that describes the format and lengths of the blocks that
-  follow
-- support for remote data
-- support for asynchronous and synchronous calls
-- Currently supports both arbitrary function execution (pickled from the client),
-  as well as named/registered functions on the server, which can be called
-  by strings
-- Support for banning arbitrary functions, and only executing registered functions
-  (not implemented yet, but easy)
+The goal of this project is to make it easy to execute both registered and arbitrary functions on a remote server, just as easily as executing code locally.  Passes back all stdout and stderr and exceptions back to the client so working remotely feels like working locally.  Supports server side remote data objects, so large results can be left on the server/cluster, but interacted with easily.
 
 ### Install
 
