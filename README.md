@@ -230,3 +230,9 @@ may be pushed into the intermediate results queue for the job.  This is task sta
 - reliability - we don't do much to guarantee consistency across the distributed file system, if something goes wrong it is possible to have 2 copies of the same resource which are different
 - reliability - we don't protect hosts from running out of disk space
 - reliability - we don't protect redis from running out of ram
+
+#### Testing
+- `nosetests kitchensink ` will run all unittests (we don't have many unfortunately, that could definitely be improved)
+- `nosetests integration_tests` will run all integration tests (setup 3 kitchensink nodes locally), and exercise
+  most of the functionality.  There are few tests here, but they are quite thorough.
+-  I plan to primarily rely on integration tests rather than unit tests at the beginning, because it is likely that the code will go through many changes and the integration tests won't have to change as frequently
