@@ -76,9 +76,7 @@ def pull_intermediate_results(connection, keys, timeout=5):
     messages = _grab_all_messages(connection, keys)
     #if timeout is 0, then we want instant return, do not do blocking call
     if not messages and timeout != 0:
-        logger.info("nonblock pop got nothing")
         messages =  _block_and_grab_all_messages(connection, keys, timeout=timeout)
-        logger.info("block pop got %s messages", len(messages))
     messages = [(x[0].split(":")[2], x[1]) for x in messages]
     return messages
 
@@ -89,16 +87,6 @@ class KitchenSinkJob(Job):
         self._status = status
         connection.hset(self.key, 'status', self._status)
 
-    def refresh(self):
-        st = time.time()
-        super(KitchenSinkJob, self).refresh()
-        ed = time.time()
-        logger.debug("REFRESH %s", ed-st)
-    def save(self, *args, **kwargs):
-        st = time.time()
-        super(KitchenSinkJob, self).save(*args, **kwargs)
-        ed = time.time()
-        logger.debug("SAVE %s", ed-st)
     @property
     def intermediate_results_key(self):
         return self.key + ":" + "intermediate_results"
@@ -111,10 +99,8 @@ class KitchenSinkJob(Job):
     def claim_for(cls, connection, job_id, queue_name):
         val = connection.setnx(cls.claim_key_for(job_id), queue_name)
         if val == 0:
-            logger.info("failed to claim %s for %s", job_id, queue_name)
             return False
         else:
-            logger.info("succeeded to claim %s for %s", job_id, queue_name)
             return True
 
     def push_intermediate_results(self, result, pipeline=None):
@@ -135,7 +121,6 @@ class KitchenSinkJob(Job):
                                         'status' : status},
                                        pipeline=connection)
         ed = time.time()
-        logger.info("push status %s", ed - st)
     def push_stdout(self, output):
         self.push_intermediate_results({'type' : 'stdout',
                                         'msg' : output})
@@ -155,7 +140,6 @@ class KitchenSinkJob(Job):
     # Job execution
     def perform(self):  # noqa
         """Invokes the job function with the job arguments."""
-        logger.info("JOB PERFORM")
         rq.job._job_stack.push(self.id)
         try:
             self._result = self.func(*self.args, **self.kwargs)
@@ -179,12 +163,10 @@ class KitchenSinkRedisQueue(Queue):
         st = time.time()
         self.connection.sadd(self.redis_queues_keys, self.key)
         ed = time.time()
-        logger.info('sadd %s', ed-st)
         if self._async:
             st = time.time()
             self.push_job_id(job.id)
             ed = time.time()
-            logger.info('push %s', ed-st)
         else:
             job.perform()
             job.save()
@@ -266,27 +248,19 @@ class KitchenSinkWorker(Worker):
         """Performs the actual work of a job.  Will/should only be called
         inside the work horse's process.
         """
-        self.log.info("**************PERFORM")
         with self.connection._pipeline() as pipeline:
             self.heartbeat((job.timeout or 180) + 60, pipeline=pipeline)
-            self.log.info("heartbeat")
             self.set_state('busy', pipeline=pipeline)
-            self.log.info("set state")
             self.set_current_job_id(job.id, pipeline=pipeline)
-            self.log.info("set job id")
             job.set_status(Status.STARTED, pipeline=pipeline)
             job.push_status(Status.STARTED, pipeline=pipeline)
-            self.log.info("execute")
             pipeline.execute()
-        self.log.info("before pipeline")
         with self.connection._pipeline() as pipeline:
             try:
-                self.log.info("with pipeline")
                 with self.death_penalty_class(job.timeout or self.queue_class.DEFAULT_TIMEOUT):
                     st = time.time()
                     rv = job.perform()
                     ed = time.time()
-                    logger.info("%s completed in %s", job.id, ed-st)
                 # Pickle the result in the same try-except block since we need to
                 # use the same exc handling when pickling fails
                 job._result = rv
