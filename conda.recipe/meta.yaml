@@ -18,6 +18,7 @@ requirements:
     - requests
     - flask
     - six
+    - simpleservices
 
 about:
   home: https://github.com/ContinuumIO/ArrayManagement
