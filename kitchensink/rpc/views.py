@@ -23,6 +23,7 @@ def make_json(jsonstring, status_code=200, headers={}):
                                       headers=headers,
                                       mimetype='application/json')
 
+
 ### job endpoints
 @rpcblueprint.route("/call/<rpcname>/", methods=['POST'])
 def call(rpcname):
@@ -158,3 +159,7 @@ def put_data(path):
 #     return current_app.response_class(response=data,
 #                                       status=200,
 #                                       mimetype='application/octet-sream')
+
+@rpcblueprint.route("/ping/", methods=['GET', 'POST'])
+def ping():
+    return 'pong'

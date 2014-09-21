@@ -408,6 +408,13 @@ class Client(object):
         results = self.br()
         return zip(hosts, results)
 
+    def ping(self):
+        url = self.url + "rpc/ping/"
+        try:
+            return requests.get(url).content
+        except requests.ConnectionError:
+            return None
+
 import hashlib
 def md5sum(obj):
     path = obj.local_path()

@@ -47,6 +47,7 @@ def setup_server(_redis_conn, _datadir, _host_url, _catalog):
     global catalog
     global datadir
     global host_url
+    global rpc_url
     global redis_conn
     global data_rpc_url
     global is_server

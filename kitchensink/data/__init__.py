@@ -6,7 +6,7 @@ import tempfile
 from os import stat, makedirs, remove
 import random
 import uuid
-import cStringIO
+from cStringIO import StringIO
 import time
 
 from six import string_types
@@ -36,7 +36,7 @@ def hosts():
 
 def _write(finput, f):
     if isinstance(finput, string_types):
-        finput = cStringIO(finput)
+        finput = StringIO(finput)
     if isinstance(f, string_types):
         f = open(f, 'wb+')
     try:
@@ -285,7 +285,9 @@ class RemoteData(object):
     (self._raw), and you ask for the local path, we will write it to a temp file
     and return you that path
     """
-    def __init__(self, obj=None, local_path=None, data_url=None, rpc_url=None,
+    def __init__(self, obj=None, local_path=None, data_url=None,
+                 raw=None,
+                 rpc_url=None,
                  fmt="cloudpickle"):
         if rpc_url is None:
             rpc_url = settings.data_rpc_url
@@ -294,7 +296,7 @@ class RemoteData(object):
         self.fmt = fmt
         self._obj = obj
         self._local_path = local_path
-        self._raw = None
+        self._raw = raw
 
     def __setstate__(self, obj):
         self.data_url = obj['data_url']
@@ -353,22 +355,22 @@ class RemoteData(object):
         ### if we have the data in memory, write it to a local file and return it
         if self._raw:
             name = tempfile.NamedTemporaryFile(prefix="ks-data-").name
-            _raw_write(self._raw, name)
+            _write(self._raw, name)
             self._local_path = name
             return name
         ### if we have an in memory object, serialize it, write to a file
         ### and return it
-        if self._obj:
+        if self._obj is not None:
             name = tempfile.NamedTemporaryFile(prefix="ks-data-").name
             data = serializer(self.fmt)(self._obj)
-            _raw_write(data, name)
+            _write(data, name)
             self._local_path = name
             return name
         ### grab the stream, write to temporary file, return the path
-        stream = self._get()
+        stream = self._get_stream()
         try:
             name = tempfile.NamedTemporaryFile(prefix="ks-data-").name
-            _raw_write(stream, name)
+            _write(stream, name)
             self._local_path = name
             return name
         finally:
@@ -389,11 +391,12 @@ class RemoteData(object):
             self._raw = _read(self._local_path)
             return self._raw
 
-        if self._obj:
+        if self._obj is not None:
             self._raw = serializer(self.fmt)(self._obj)
             return self._raw
         try:
-            self._raw = self._get()
+            stream = self._get_stream()
+            self._raw = stream.read()
             return self._raw
         finally:
             stream.close()
@@ -408,10 +411,9 @@ class RemoteData(object):
             self._obj = obj
             return obj
         except Exception as e:
-            logger.error("error with %s on %s raw len %s",
+            logger.error("error with %s on %s raw",
                          self.data_url,
                          settings.data_rpc_url,
-                         len(raw)
             )
             logger.exception(e)
             raise
@@ -421,13 +423,13 @@ class RemoteData(object):
 
     def _save_stream(self):
         if self._raw:
-            return len(self._raw), cStringIO.StringIO(self._raw)
+            return len(self._raw), StringIO(self._raw)
         elif self._local_path:
-            length = stat(file_path).st_size
+            length = stat(self._local_path).st_size
             return length, open(self._local_path, "rb")
         else:
             data = serializer(self.fmt)(self._obj)
-            return len(data), cStringIO.StringIO(data)
+            return len(data), StringIO(data)
 
     def save(self, url=None, prefix=""):
         """use this function to save a NEW data object
@@ -526,3 +528,5 @@ def dp(path):
     return RemoteData(local_path=path)
 def do(obj):
     return RemoteData(obj=obj)
+def dr(raw):
+    return RemoteData(raw=raw)

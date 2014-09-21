@@ -122,7 +122,7 @@ def run(redis_connection, node_url, node_port,
     if module:
         mod = __import__(module)
     runserver(gevent=gevent)
-    close_all()
+    #close_all()
 
 
 def main():
@@ -136,7 +136,6 @@ def main():
         helper()
 
 if __name__ == "__main__":
-
 
     logging.basicConfig(level=logging.INFO, format=FORMAT)
     logging.getLogger("requests.packages.urllib3.connectionpool").setLevel(logging.WARNING)
