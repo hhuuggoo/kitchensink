@@ -466,19 +466,16 @@ class RemoteData(object):
                 self.data_url = url
         length, f = self._save_stream()
         try:
-            c = self.client()
             host = self.rpc_url
-
             client = self._pipeline_existing(host, length=length)
             self._put(f)
-            return c.br()
-        except Exception as e:
+            return client.br()
+        finally:
             f.close()
-            raise e
 
     def _pipeline_existing(self, starting_host, length=None):
         c = self.client()
-        active_hosts, results = c.data_info(self, [self.data_url])
+        active_hosts, results = c.data_info([self.data_url])
         host_info, data_info = results[self.data_url]
         if length is None:
             length = data_info['size']
@@ -487,7 +484,6 @@ class RemoteData(object):
         hosts = [x for x in hosts if x != starting_host]
         hosts.append(starting_host)
         print hosts
-        calls = []
         for idx in range(1, len(hosts)):
             c.bc('chunked_copy', self.data_url, length, hosts[idx],
                  _queue_name=hosts[idx - 1],

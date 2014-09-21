@@ -116,7 +116,7 @@ def get_data(path):
         local_path = settings.catalog.get_file_path(path, unfinished=True)
         offset = int(offset)
         length = int(length)
-        if not exists(local_path):
+        if local_path is None or not exists(local_path):
             data = b""
         else:
             with open(local_path, "rb") as f:
