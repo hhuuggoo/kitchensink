@@ -19,7 +19,7 @@ requirements:
     - flask
     - six
     - simpleservices
-
+    - gevent
 about:
   home: https://github.com/ContinuumIO/ArrayManagement
   license: BSD
