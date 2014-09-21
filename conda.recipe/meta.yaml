@@ -1,6 +1,6 @@
 package:
   name: kitchensink
-  version: 0.1
+  version: 0.2
 
 source:
   git_url: git@github.com:hhuuggoo/kitchensink.git

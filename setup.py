@@ -15,11 +15,13 @@ if len(sys.argv)>1 and sys.argv[1] == 'develop':
 from distutils.core import setup
 import os
 import sys
-__version__ = (0, 1)
+__version__ = (0, 2)
 setup(
     name = 'kitchensink',
     version = '.'.join([str(x) for x in __version__]),
     packages = ['kitchensink',
+                'kitchensink.admin',
+                'kitchensink.api',
                 'kitchensink.clients',
                 'kitchensink.data',
                 'kitchensink.rpc',
