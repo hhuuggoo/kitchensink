@@ -114,13 +114,11 @@ class KitchenSinkJob(Job):
 
     def push_status(self, status=None, pipeline=None):
         connection = pipeline if pipeline is not None else self.connection
-        st = time.time()
         if status is None:
             status = self.get_status()
         self.push_intermediate_results({'type' : 'status',
                                         'status' : status},
                                        pipeline=connection)
-        ed = time.time()
     def push_stdout(self, output):
         self.push_intermediate_results({'type' : 'stdout',
                                         'msg' : output})
@@ -160,13 +158,9 @@ class KitchenSinkRedisQueue(Queue):
         If Queue is instantiated with async=False, job is executed immediately.
         """
         # Add Queue key set
-        st = time.time()
         self.connection.sadd(self.redis_queues_keys, self.key)
-        ed = time.time()
         if self._async:
-            st = time.time()
             self.push_job_id(job.id)
-            ed = time.time()
         else:
             job.perform()
             job.save()
@@ -258,9 +252,7 @@ class KitchenSinkWorker(Worker):
         with self.connection._pipeline() as pipeline:
             try:
                 with self.death_penalty_class(job.timeout or self.queue_class.DEFAULT_TIMEOUT):
-                    st = time.time()
                     rv = job.perform()
-                    ed = time.time()
                 # Pickle the result in the same try-except block since we need to
                 # use the same exc handling when pickling fails
                 job._result = rv

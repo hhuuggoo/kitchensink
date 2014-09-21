@@ -17,7 +17,6 @@ class TaskQueue(object):
 
     def get_queue(self, name):
         if not name in self.queues:
-            log.info("MAKING QUEUE")
             queue = KitchenSinkRedisQueue(name, connection=self.conn)
             self.queues[name] = queue
         return self.queues[name]
@@ -33,13 +32,10 @@ class TaskQueue(object):
         return job
 
     def enqueue(self, queue_names, func, args, kwargs, metadata={}):
-        st = time.time()
         job = self.make_job(func, args, kwargs, metadata=metadata)
         for queue_name in queue_names:
             queue = self.get_queue(queue_name)
             queue.enqueue_job(job)
-        ed = time.time()
-        log.info("TOTAL enqueued job %s", ed-st)
         return job._id, job.get_status()
 
     # def enqueue(self, queue_name, func, args, kwargs, metadata={}):
@@ -60,7 +56,7 @@ class TaskQueue(object):
         else:
             messages = pull_intermediate_results(self.conn, job_ids, timeout=timeout)
         mt = time.time()
-        print ("MESSAGES %s, %s, %s" % (mt, mt - st, messages))
+        log.info("GOT MESSAGES %s, %s, %s" % (mt, mt - st, len(messages)))
         statuses = [job.get_status() for job in jobs]
         metadata = {}
         results = {}
@@ -110,13 +106,11 @@ class TaskQueue(object):
         if status == Status.FINISHED:
             retval = job.return_value
             job.delete()
-            log.info("delete job")
             return metadata, retval
 
         elif status == Status.FAILED:
             retval = job.exc_info
             job.delete()
-            log.info("delete job")
             return metadata, retval
         else:
             return metadata, None
