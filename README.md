@@ -53,7 +53,9 @@ Kitchen sink aims to make remote cluster work as easy as working on your laptop.
 
 ### Asynchronous execution
 
-The following code will execute a remote function
+The following code will execute a remote function.  Here, `bc` is short for bulk_call.
+kitchen sink does support executing one function at a time using `call`, however I've found that I almost want to execute many functions at a time, and `bc` is more convenient.
+`bc` enqueues calls on the local client object.  `execute` sends those calls to the server.  and `br`, short for `bulk_results` waits on the results of completion, and returns them.
 
 ```
 from kitchensink import setup_client, client
@@ -62,9 +64,9 @@ c = client()
 import numpy as np
 def test_func2(x, y):
     return np.dot(x, y)
-jobid = c.call(test_func2, np.array([1,2,3,4,5]), np.array([1,2,3,4,5]))
-c.result(jobid)
-
+c.bc(test_func2, np.array([1,2,3,4,5]), np.array([1,2,3,4,5]))
+c.execute()
+c.br()
 ```
 
 
@@ -95,10 +97,9 @@ def test_func(a, b):
     result = RemoteData(obj=result)
     result.save()
     return result
-
-c = Client("http://localhost:6324/", rpc_name='test')
-jid = c.call(test_func, a, b)
-result = c.async_result(jid)
+c.bc(test_func, a, b)
+c.execute()
+result = c.br()[0]
 
 ```
 The remote data object is small object, which can either represent a local or a
@@ -108,8 +109,9 @@ can be referenced via a data_url, and then accessed
 
 ```
 a = RemoteData(data_url="mylarge/dataset")
-jid = c.call(lambda data : data.obj().head(10))
-c.result(jid)
+c.bc(lambda data : data.obj().head(10))
+c.execute()
+result = c.br()[0]
 
 ```
 
