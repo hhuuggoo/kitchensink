@@ -6,7 +6,7 @@ The goal of this project is to make RPC easy to use - especially for people doin
 - passing standard out/ std err back to the client, so that remote work is almost as seamless as local work
 - passing exceptions back to the client
 - http support for transport
-- pluggable serialiation (json/dill/pickle/cloudpickle)
+- pluggable serialization (json/dill/pickle/cloudpickle)
   - we do this by having a multi-part message format.  Every message
   starts with a json block that describes the format and lengths of the blocks that
   follow
