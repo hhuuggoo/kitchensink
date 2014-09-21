@@ -18,6 +18,14 @@ The goal of this project is to make RPC easy to use - especially for people doin
 - Support for banning arbitrary functions, and only executing registered functions
   (not implemented yet, but easy)
 
+### Install
+
+Currently only tested on linux with python2.7.  OS X is probably fine.
+
+- conda install -c hugo kitchensink
+- pip install kitchensinkRPC
+
+
 ### Quickstart
 To get started, you only need one server.
 
