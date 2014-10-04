@@ -19,6 +19,7 @@ def parser():
                    help="redis connection information, <ip>:<port>:db",
                    default="localhost:6379:0")
     p.add_argument('--node-url', help='url of node', default='http://localhost:6324/')
+    p.add_argument('--node-name', help='name of node', default=None)
     p.add_argument('--queue',
                    help='queue to operate on',
                    action='append')
@@ -33,10 +34,11 @@ def parser():
     return p
 
 def run_args(args):
-    run(args.redis_connection, args.node_url, args.queue, args.datadir)
+    run(args.redis_connection, args.node_url, args.node_name, args.queue, args.datadir)
 
-def run(redis_connection, node_url, queue, datadir):
-    settings.node_url = node_url
+def run(redis_connection, node_url, node_name, queue, datadir):
+    if node_name is None:
+        node_name = node_url
     redis_connection_obj = parse_redis_connection(redis_connection)
     r = redis.StrictRedis(host=redis_connection_obj['host'],
                           port=redis_connection_obj['port'],

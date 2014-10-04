@@ -41,6 +41,7 @@ def parser():
                    help="redis connection information, tcp://localhost:6379?db=9",
                    default="tcp://localhost:6379?db=9")
     p.add_argument('--node-url', help='url of node', default='http://localhost:6323/')
+    p.add_argument('--node-name', help='name of node', default=None)
     p.add_argument('--no-redis',
                    help="do not start redis",
                    default=False,
@@ -73,13 +74,14 @@ def parser():
 
 def run_args(args):
     run(args.redis_connection, args.node_url,
+        args.node_name,
         args.node_port,
         args.num_workers, args.no_redis, args.queue,
         args.module,
         args.datadir
     )
 
-def run(redis_connection, node_url, node_port,
+def run(redis_connection, node_url, node_name, node_port,
         num_workers, no_redis, queue, module, datadir):
     if not node_url.endswith("/"):
         node_url += "/"
@@ -96,6 +98,7 @@ def run(redis_connection, node_url, node_port,
         time.sleep(1)
     cmd = [sys.executable, '-m', 'kitchensink.scripts.start_worker',
            '--node-url', node_url,
+           '--node-name', node_name,
            '--redis-connection', redis_connection,
            '--datadir', datadir,
     ]
