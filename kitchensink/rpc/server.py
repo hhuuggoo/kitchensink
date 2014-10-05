@@ -22,7 +22,7 @@ def get_queue(name):
             rpcblueprint.queues[name] = queue
     return rpcblueprint.queues[name]
 
-def make_app(redis_connection_obj, port, host_url, datadir):
+def make_app(redis_connection_obj, port, host_url, host_name, datadir):
     app.register_blueprint(rpcblueprint, url_prefix="/rpc")
     app.port = port
     if gevent:
@@ -32,7 +32,7 @@ def make_app(redis_connection_obj, port, host_url, datadir):
                                        db=redis_connection_obj['db'])
     rpcblueprint.task_queue = TaskQueue(rpcblueprint.r)
     server_manager = Servers(rpcblueprint.r)
-    settings.setup_server(rpcblueprint.r, datadir, host_url,
+    settings.setup_server(rpcblueprint.r, datadir, host_url, host_name,
                           Catalog(rpcblueprint.r, datadir, host_url),
                           server_manager
     )
@@ -49,6 +49,7 @@ def close():
 
 def run(gevent=False):
     app.debug = True
+    settings.server_manager.register(settings.host_name, settings.host_url)
     rpcblueprint.heartbeat_thread.start()
     atexit.register(close)
     if gevent:
@@ -62,23 +63,10 @@ def run(gevent=False):
 class HeartbeatThread(Thread):
     def run(self):
         self.kill = False
-        if settings.prefix:
-            self.host_key = settings.prefix + ":" + "hosts"
-            self.hostinfo_key = settings.prefix + ":" + \
-                                "hostinfo:%s" % settings.host_name
-        else:
-            self.host_key = "hosts"
-            self.hostinfo_key = "hostinfo:%s" % settings.host_name
-
         def loop():
-            settings.redis_conn.sadd(self.host_key, self.hostinfo_key)
-            settings.redis_conn.expire(self.hostinfo_key, settings.timeout)
-
+            settings.server_manager.active_loop(settings.host_name)
         def remove():
-            settings.redis_conn.srem(self.host_key, self.hostinfo_key)
-            settings.redis_conn.delete(self.hostinfo_key)
-
-        settings.redis_conn.hset(self.hostinfo_key, 'url', settings.host_url)
+            settings.server_manager.remove(settings.host_name)
         loop()
         while True:
             if self.kill:

@@ -19,7 +19,7 @@ from .. import settings
 from ..serialization import deserializer, serializer
 from ..errors import KitchenSinkError
 from ..utils.pathutils import urlsplit, dirsplit, urljoin
-from .datarpc import get_info_bulk, hosts
+from .funcs import get_info_bulk, hosts
 
 logger = logging.getLogger(__name__)
 
@@ -251,7 +251,8 @@ class Catalog(object):
         return (location_info, data_info)
 
     def get_info(self, url):
-        hosts , (location_info, data_info) = get_info_bulk(url)
+        hosts , results = get_info_bulk([url])
+        location_info, data_info = results[url]
         return hosts, location_info, data_info
 
     def get_file_path(self, url, unfinished=False):

@@ -6,7 +6,7 @@ import redis
 from kitchensink import settings
 from kitchensink.utils import parse_redis_connection
 from kitchensink.taskqueue.objs import KitchenSinkRedisQueue, KitchenSinkWorker
-from kitchensink.data import Catalog
+from kitchensink.data import Catalog, Servers
 comments = \
 """
 kitchen sink RPC Server
@@ -43,8 +43,11 @@ def run(redis_connection, node_url, node_name, queue, datadir):
     r = redis.StrictRedis(host=redis_connection_obj['host'],
                           port=redis_connection_obj['port'],
                           db=redis_connection_obj['db'])
-    settings.setup_server(r, datadir, node_url,
-                          Catalog(r, datadir, node_url))
+    server_manager = Servers(r)
+    settings.setup_server(r, datadir, node_url, node_name,
+                          Catalog(r, datadir, node_url),
+                          server_manager
+    )
     if queue is None:
         queue = ['default']
     with Connection(r):
@@ -52,10 +55,10 @@ def run(redis_connection, node_url, node_name, queue, datadir):
         node_queue = KitchenSinkRedisQueue(node_url)
         queues.append(node_queue)
         for q in queue:
-            if ':' in q:
+            if '|' in q:
                 raise Exception("queue names cannot contain colons")
             queues.append(KitchenSinkRedisQueue(q))
-            queues.append(KitchenSinkRedisQueue("%s:%s" % (node_name, q)))
+            queues.append(KitchenSinkRedisQueue("%s|%s" % (q, node_name)))
             w = KitchenSinkWorker(queues, default_result_ttl=86400)
     w.work(burst=False)
 

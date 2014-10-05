@@ -14,6 +14,9 @@ from kitchensink.testutils.integration import (dummy_func,
                                                remote_file,
 )
 import kitchensink.testutils.integration as integration
+import logging
+requests_log = logging.getLogger("requests")
+requests_log.setLevel(logging.WARNING)
 
 setup_module = integration.setup_module
 teardown_module = integration.teardown_module
@@ -121,13 +124,12 @@ def test_remote_data_sources():
 def test_remote_data_source_conversions():
     ### remote data sources can be accessed as an object, local path, or raw data
     ### test conversions of all
-
+    setup_client(integration.url1)
+    c = client()
     df1 = pd.DataFrame({'a' : np.arange(100)})
     shape = df1.shape
     obj = do(df1)
     obj.save()
-    setup_client(integration.url1)
-    c = client()
     c.bc(remote_obj_func, du(obj.data_url))
     c.execute()
     result = c.br()[0]

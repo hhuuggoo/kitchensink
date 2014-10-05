@@ -113,6 +113,7 @@ class RPC(object):
                     continue
                 job = async_jobs.get(idx, None)
                 queue = queues.pop(0)
+                logger.info('enqueue call %s', queue)
                 self.task_queue.get_queue(queue).enqueue_job(job)
                 if not queues:
                     del async_queues[idx]

@@ -146,12 +146,14 @@ class RemoteData(object):
         if self._obj is not None:
             self._raw = serializer(self.fmt)(self._obj)
             return self._raw
+        stream = None
         try:
             stream = self._get_stream()
             self._raw = stream.read()
             return self._raw
         finally:
-            stream.close()
+            if stream:
+                stream.close()
 
     def obj(self):
         if self._obj is not None:
@@ -197,9 +199,8 @@ class RemoteData(object):
             data_type = "object" if self._obj is not None else None
             fmt = self.fmt if self._obj is not None else None
             self._put(f, data_type=data_type, fmt=fmt)
-        except Exception as e:
+        finally:
             f.close()
-            raise e
 
     def pipeline(self, existing=False, url=None, prefix=""):
         """pipeline this datasource across all nodes

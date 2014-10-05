@@ -66,12 +66,12 @@ class Client(object):
 
     def queue(self, name, host=None):
         if host:
-            return "%s:%s" % name, host
+            return "%s|%s" % (name, host)
         else:
             return name
 
     def has_host(self, queue_name):
-        return len(queue_name.split(":")) == 2
+        return len(queue_name.split("|")) == 2
 
     def clone(self):
         """constructs a client with the same settings as this one, but
@@ -334,13 +334,13 @@ class Client(object):
         return result
 
     def pick_host(self, data_url):
-        active_hosts, results = self.call('get_info_bulk', data_url,
+        active_hosts, results = self.call('get_info_bulk', [data_url],
                                           _rpc_name='data',
                                           _async=False)
-        location_info, data_info = results
-        if settings.host_url and settings.host_url in host_info:
-            return host_info[settings.host_url]
-        host = host_info.keys()[0]
+        location_info, data_info = results[data_url]
+        if settings.host_name and settings.host_name in location_info:
+            return settings.host_name
+        host = random.choice(location_info)[0]
         return host
 
     def path_search(self, pattern):

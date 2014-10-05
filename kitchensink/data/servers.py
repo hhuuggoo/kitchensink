@@ -1,5 +1,8 @@
+import logging
+
 from .. import settings
 
+logger = logging.getLogger(__name__)
 class Servers(object):
     """Class to manage redis data structures
     surrounding which hosts/servers are active
@@ -26,6 +29,7 @@ class Servers(object):
             return "active" + ":" + hostname
 
     def register(self, hostname, hosturl):
+        logger.info('REGISTER %s %s', hostname, hosturl)
         self.conn.hset(self.host_info_key(), hostname, hosturl)
         self.conn.set(self.active_host_key(hostname), 'active')
 
@@ -42,12 +46,13 @@ class Servers(object):
     def active_hosts(self):
         host_info = self.conn.hgetall(self.host_info_key())
         all_host_names = host_info.keys()
-        active_hosts = self.conn.mget(*all_host_names)
+        active_host_keys = [self.active_host_key(x) for x in all_host_names]
+        active_hosts = self.conn.mget(active_host_keys)
         temp = zip(all_host_names, active_hosts)
         active_hosts = [host_name for host_name, active_flag in temp \
                         if active_flag]
         active_hosts = set(active_hosts)
-        for k in host_info:
+        for k in host_info.keys():
             if k not in active_hosts:
                 host_info.pop(k)
         return host_info

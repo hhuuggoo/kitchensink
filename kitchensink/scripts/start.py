@@ -85,6 +85,8 @@ def run(redis_connection, node_url, node_name, node_port,
         num_workers, no_redis, queue, module, datadir):
     if not node_url.endswith("/"):
         node_url += "/"
+    if node_name is None:
+        node_name = node_url
     datadir = abspath(datadir)
     register_shutdown()
     redis_connection_info = parse_redis_connection(redis_connection)
@@ -102,7 +104,7 @@ def run(redis_connection, node_url, node_name, node_port,
            '--redis-connection', redis_connection,
            '--datadir', datadir,
     ]
-    app = make_app(redis_connection_info, node_port, node_url, datadir)
+    app = make_app(redis_connection_info, node_port, node_url, node_name, datadir)
     app.debug_log_format = FORMAT
     for c in range(10):
         try:
@@ -111,10 +113,11 @@ def run(redis_connection, node_url, node_name, node_port,
         except ConnectionError:
             time.sleep(1.0)
     if queue is None:
-        queue = ['default']
+        queue = ['default', 'data']
     for q in queue:
         cmd.extend(['--queue', q])
     for c in range(num_workers):
+        print ('**cmd', cmd)
         ManagedProcess(cmd, 'worker-%s' % c, pid_file)
     data_rpc = make_data_rpc()
     register_rpc(data_rpc, 'data')
