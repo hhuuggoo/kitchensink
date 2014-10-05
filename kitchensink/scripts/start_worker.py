@@ -52,7 +52,10 @@ def run(redis_connection, node_url, node_name, queue, datadir):
         node_queue = KitchenSinkRedisQueue(node_url)
         queues.append(node_queue)
         for q in queue:
+            if ':' in q:
+                raise Exception("queue names cannot contain colons")
             queues.append(KitchenSinkRedisQueue(q))
+            queues.append(KitchenSinkRedisQueue("%s:%s" % (node_name, q)))
             w = KitchenSinkWorker(queues, default_result_ttl=86400)
     w.work(burst=False)
 

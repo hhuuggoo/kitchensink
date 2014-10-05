@@ -228,17 +228,18 @@ class RemoteData(object):
     def _pipeline_existing(self, starting_host, length=None):
         c = self.client()
         active_hosts, results = c.data_info([self.data_url])
-        host_info, data_info = results[self.data_url]
+        location_info, data_info = results[self.data_url]
         if length is None:
             length = data_info['size']
-        hosts = c.call('hosts', _async=False)
-        hosts = [x for x in hosts if x not in host_info]
+        hosts = set(active_hosts.keys())
+        hosts = [x for x in hosts if x not in location_info]
         hosts = [x for x in hosts if x != starting_host]
         hosts.append(starting_host)
         print hosts
         for idx in range(1, len(hosts)):
+            queue = c.queue('data', host=hosts[idx - 1])
             c.bc('chunked_copy', self.data_url, length, hosts[idx],
-                 _queue_name=hosts[idx - 1],
+                 _queue_name=queue,
             )
         c.execute()
         return c

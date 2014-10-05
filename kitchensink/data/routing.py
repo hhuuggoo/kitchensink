@@ -17,14 +17,14 @@ def route(urls, hosts, infos, threshold):
     infos: dict of data_urls to tuple of (host_info, data_info)
     """
     to_copy = {} #dict of host -> how much data needs to be copied
-    for host in hosts:
+    for host in hosts.keys():
         to_copy[host] = 0
     #M*N algo.. should be ok cause M and N are small
     for url in urls:
-        host_info, data_info = infos[url]
+        location_info, data_info = infos[url]
         size = data_info['size']
         for host in hosts:
-            if host_info.get(host):
+            if host in location_info:
                 continue
             else:
                 to_copy[host] += size

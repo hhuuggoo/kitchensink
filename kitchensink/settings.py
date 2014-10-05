@@ -1,4 +1,5 @@
 from .serialization import json_serialization, dill_serialization, pickle_serialization
+from .utils.funcs import reverse_dict
 
 formats = {}
 def register_serialization(name, serializer, deserializer):
@@ -72,6 +73,11 @@ def setup_client(_rpc_url):
     global rpc_url
     global data_rpc_url
     global is_server
+    global host_name
+    active_hosts = client().call('hosts',
+                                 _async=False,
+                                 _rpc_name='data')
+    host_name = reverse_dict(active_hosts)[rpc_url]
     is_server = False
     rpc_url = _rpc_url
     data_rpc_url = rpc_url
