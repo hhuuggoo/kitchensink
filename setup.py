@@ -17,7 +17,7 @@ import os
 import sys
 __version__ = (0, 2)
 setup(
-    name = 'kitchensink',
+    name = 'kitchensinkRPC',
     version = '.'.join([str(x) for x in __version__]),
     packages = ['kitchensink',
                 'kitchensink.admin',
@@ -35,5 +35,7 @@ setup(
     url = 'http://github.com/hhuuggoo/kitchensink',
     description = 'Kitchen Sink',
     zip_safe=False,
+    author='Hugo Shi',
+    author_email='hugo.r.shi@gmail.com',
     license = 'New BSD',
 )
