@@ -33,7 +33,7 @@ def make_app(redis_connection_obj, port, host_url, host_name, datadir):
     rpcblueprint.task_queue = TaskQueue(rpcblueprint.r)
     server_manager = Servers(rpcblueprint.r)
     settings.setup_server(rpcblueprint.r, datadir, host_url, host_name,
-                          Catalog(rpcblueprint.r, datadir, host_url),
+                          Catalog(rpcblueprint.r, datadir, host_name),
                           server_manager
     )
     rpcblueprint.heartbeat_thread = HeartbeatThread()

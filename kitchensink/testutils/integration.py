@@ -47,6 +47,7 @@ def setup_module():
     cmd = ['python', '-m', 'kitchensink.scripts.start',
            '--datadir', dir1,
            '--no-redis',
+           '--node-name', 'node1',
            '--node-url', url1,
            '--num-workers', '1',
            '--redis-connection', redis_url]
@@ -55,6 +56,7 @@ def setup_module():
     cmd = ['python', '-m', 'kitchensink.scripts.start',
            '--datadir', dir2,
            '--no-redis',
+           '--node-name', 'node2',
            '--node-url', url2,
            '--num-workers', '1',
            '--redis-connection', redis_url]
@@ -63,6 +65,7 @@ def setup_module():
     cmd = ['python', '-m', 'kitchensink.scripts.start',
            '--datadir', dir3,
            '--no-redis',
+           '--node-name', 'node3',
            '--node-url', url3,
            '--num-workers', '1',
            '--redis-connection', redis_url]

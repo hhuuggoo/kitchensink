@@ -19,7 +19,7 @@ def get_info_bulk(urls):
     active_hosts = hosts()
     for u in urls:
         location_info, data_info = settings.catalog._get_info(u)
-        for host in location_info:
+        for host in list(location_info):
             if host not in active_hosts:
                 location_info.remove(host)
         results[u] = location_info, data_info

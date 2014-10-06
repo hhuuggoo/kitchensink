@@ -51,6 +51,8 @@ class Client(object):
                  queue_name="default",
                  fmt='cloudpickle'):
         # client settings
+        if url is None:
+            raise Exception('url cannot be None')
         self.url = url
         self.fmt = fmt
         self.rpc_name = rpc_name
@@ -339,9 +341,9 @@ class Client(object):
                                           _async=False)
         location_info, data_info = results[data_url]
         if settings.host_name and settings.host_name in location_info:
-            return settings.host_name
-        host = random.choice(location_info)[0]
-        return host
+            return (settings.host_name, active_hosts[settings.host_name])
+        host = random.choice(list(location_info))[0]
+        return (host, active_hosts[host])
 
     def path_search(self, pattern):
         return self.async_result(self.call('search_path', pattern,

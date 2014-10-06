@@ -73,7 +73,7 @@ class RemoteData(object):
         if settings.catalog:
             return settings.catalog.get(self.data_url)
         c = self.client(self.rpc_url)
-        url = c.pick_host(self.data_url)
+        node, url = c.pick_host(self.data_url)
         resp = self.client(url)._get_data(self.data_url)
         return resp.raw
 
@@ -219,16 +219,19 @@ class RemoteData(object):
                 self.data_url = url
         length, f = self._save_stream()
         try:
-            host = self.rpc_url
-            client = self._pipeline_existing(host, length=length)
+            client = self._pipeline_existing(starting_url=self.rpc_url, length=length)
             self._put(f)
             return client.br()
         finally:
             f.close()
 
-    def _pipeline_existing(self, starting_host, length=None):
+    def _pipeline_existing(self, starting_host=None, starting_url=None, length=None):
         c = self.client()
         active_hosts, results = c.data_info([self.data_url])
+        if starting_host is None:
+            #ugly...
+            from ..utils.funcs import reverse_dict
+            starting_host = reverse_dict(active_hosts)[starting_url]
         location_info, data_info = results[self.data_url]
         if length is None:
             length = data_info['size']
@@ -247,8 +250,8 @@ class RemoteData(object):
 
     def pipeline_existing(self):
         c = self.client()
-        host = c.pick_host(self.data_url)
-        client = self._pipeline_existing(host)
+        node, url = c.pick_host(self.data_url)
+        client = self._pipeline_existing(node)
         client.execute()
         return client.br()
 

@@ -45,7 +45,7 @@ def run(redis_connection, node_url, node_name, queue, datadir):
                           db=redis_connection_obj['db'])
     server_manager = Servers(r)
     settings.setup_server(r, datadir, node_url, node_name,
-                          Catalog(r, datadir, node_url),
+                          Catalog(r, datadir, node_name),
                           server_manager
     )
     if queue is None:
