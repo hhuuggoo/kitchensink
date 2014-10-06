@@ -10,19 +10,17 @@ from rq.job import Status
 from rq import Queue, Connection
 from six import string_types
 
-from ..serialization import (json_serialization,
-                             dill_serialization,
-                             pickle_serialization,
-                             pack_result,
+from ..serialization import (pack_result,
                              unpack_rpc_metadata,
                              unpack_msg_format,
                              unpack_rpc_call,
-                             append_rpc_data
+                             append_rpc_data,
+                             serializer,
+                             deserializer
 )
 
 from ..taskqueue.objs import current_job_id, KitchenSinkJob
 from ..errors import UnauthorizedAccess, UnknownFunction, WrappedError, KitchenSinkError
-from ..settings import serializer, deserializer
 from .. import settings
 from ..data import du, do
 

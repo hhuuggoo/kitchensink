@@ -35,7 +35,6 @@ class TaskQueue(object):
         job = self.make_job(func, args, kwargs, metadata=metadata)
         for queue_name in queue_names:
             queue = self.get_queue(queue_name)
-            log.info('enqueue call %s', queue)
             queue.enqueue_job(job)
         return job._id, job.get_status()
 
@@ -111,6 +110,8 @@ class TaskQueue(object):
 
         elif status == Status.FAILED:
             retval = job.exc_info
+            if retval is None:
+                retval = "job has no stack trace"
             job.delete()
             return metadata, retval
         else:

@@ -111,6 +111,17 @@ class Catalog(object):
             makedirs(dirname(file_path))
         return file_path
 
+    def bootstrap(self, url, data_type='object', fmt='cloudpickle'):
+        file_path = self.setup_file_path_from_url(url)
+        if self.url_exists(url):
+            is_new = False
+        else:
+            is_new = True
+        if is_new:
+            size = stat(file_path).st_size
+            self.set_metadata(url, size, data_type=data_type, fmt=fmt)
+        self.add(file_path, url)
+
     def write(self, finput, url, is_new=True, data_type="object", fmt="cloudpickle"):
         """writes a file, to a data url.
         is_new - is this a new object in a catalog, or a copy of an existing one.
@@ -124,7 +135,7 @@ class Catalog(object):
         file_path = self.setup_file_path_from_url(url)
         if is_new:
             if self.url_exists(url):
-                raise KitchenSinkError("path already being used")
+                raise KitchenSinkError("path already being used %s" % url)
             else:
                 self.begin_addition(file_path, url)
         if not exists(file_path):

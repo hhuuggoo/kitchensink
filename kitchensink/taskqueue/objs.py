@@ -13,7 +13,6 @@ import rq.job
 from rq.worker import StopRequested
 from rq.utils import utcnow
 from rq.compat import total_ordering, string_types, as_text
-import dill
 
 from ..serialization import serializer, deserializer
 from ..utils import setup_loghandlers

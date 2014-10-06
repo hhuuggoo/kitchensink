@@ -6,7 +6,6 @@ import logging
 
 import six
 import requests
-import dill
 from rq.job import Status
 
 from ..serialization import (serializer, deserializer, pack_msg,
@@ -59,7 +58,7 @@ class Client(object):
         self.queue_name = queue_name
         self.data_threshold = 200000000 #200 megs
         self.local = False
-        self.prefix = ""
+        self.prefix = settings.prefix
 
         # client state, used in the bulk call pipeline
         self.calls = []
@@ -118,7 +117,7 @@ class Client(object):
         for msg in messages:
             msg_format, [metadata, data] = unpack_result(msg)
             if metadata['status'] == Status.FAILED:
-                raise Exception, metadata['error']
+                raise Exception, metadata.get('error', '')
             else:
                 jids.append(metadata['job_id'])
         return jids
@@ -362,7 +361,7 @@ class Client(object):
         active_host_names = set(active_hosts.keys())
         for url in urls:
             host_info, data_info = infos[url]
-            hosts = set(active_host_names).intersection(set(host_info.keys()))
+            hosts = set(active_host_names).intersection(host_info)
             if not len(hosts) > number:
                 print("%s hosts have data for %s.  Not reducing" % (len(hosts), url))
                 continue

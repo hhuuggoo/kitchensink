@@ -265,15 +265,12 @@ class RemoteData(object):
 
     def __getitem__(self, arg):
         if settings.catalog:
-            print ("loading direct")
             obj = do(self.obj()[arg])
             obj.save()
             return obj
         else:
             c = Client(self.rpc_url)
             return c.async_result(c.call(self.__class__.__getitem__, self, arg))
-
-    __getitem__.ks_memoize = True
 
 def du(url):
     return RemoteData(data_url=url)

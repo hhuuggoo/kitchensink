@@ -36,3 +36,6 @@ def chunked_copy(url, length, host):
 
 def delete(url):
     settings.catalog.delete(url)
+
+def bootstrap(url, data_type='object', fmt='cloudpickle'):
+    settings.catalog.bootstrap(url, data_type=data_type, fmt=fmt)
