@@ -38,6 +38,7 @@ class Servers(object):
         self.conn.delete(self.active_host_key(hostname))
 
     def active_loop(self, hostname):
+        self.conn.set(self.active_host_key(hostname), 'active')
         self.conn.expire(self.active_host_key(hostname), settings.timeout)
 
     def host_url(self, hostname):

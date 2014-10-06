@@ -10,7 +10,7 @@ datadir = None
 host_url = None
 host_name = None
 redis_conn = None
-prefix = "temp/"
+prefix = ""
 timeout = 10
 is_server = None
 
