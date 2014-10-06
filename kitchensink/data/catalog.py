@@ -244,7 +244,7 @@ class Catalog(object):
             file_path = self.setup_file_path_from_url(url)
             return open(file_path, 'rb')
         else:
-            hostname = random.sample(location_info, 1)[0]
+            hostname = random.choice(list(location_info))
             host_url = hosts[hostname]
             logger.info("retrieving %s from %s", url, host_url)
             c = Client(host_url, rpc_name='data', queue_name='data')

@@ -346,7 +346,7 @@ class Client(object):
         location_info, data_info = results[data_url]
         if settings.host_name and settings.host_name in location_info:
             return (settings.host_name, active_hosts[settings.host_name])
-        host = random.choice(list(location_info))[0]
+        host = random.choice(list(location_info))
         return (host, active_hosts[host])
 
     def path_search(self, pattern):
