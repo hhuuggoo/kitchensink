@@ -118,6 +118,9 @@ class RPC(object):
         for k,v in async_jobs.iteritems():
             metadata = async_job_metadata[k]
             metadata['status'] = v.get_status()
+            if metadata['status'] == Status.FAILED:
+                v.refresh()
+                metadata['error'] = v.exc_info
             results[k] = pack_result(metadata, None, fmt=metadata['result_fmt'])
         results = [results[x] for x in range(len(msgs))]
         return results

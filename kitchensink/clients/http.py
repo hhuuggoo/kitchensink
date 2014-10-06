@@ -3,6 +3,7 @@ import time
 import random
 import datetime as dt
 import logging
+import urllib
 
 import six
 import requests
@@ -114,12 +115,16 @@ class Client(object):
                                headers={'content-type' : 'application/octet-stream'})
         msg_format, messages = unpack_msg(result.content, override_fmt='raw')
         jids = []
+        errors = []
         for msg in messages:
             msg_format, [metadata, data] = unpack_result(msg)
             if metadata['status'] == Status.FAILED:
-                raise Exception, metadata.get('error', '')
+                errors.append(metadata.get('error', ''))
             else:
                 jids.append(metadata['job_id'])
+        if errors:
+            self.bulk_cancel(jids)
+            raise Exception(str(errors))
         return jids
 
     def execute(self):
@@ -317,7 +322,7 @@ class Client(object):
         return active_hosts, results
 
     def _get_data(self, path, offset=None, length=None):
-        url = self.url + "rpc/data/%s/" % path
+        url = self.url + "rpc/data/%s/" % urllib.quote(path)
         if offset is not None and length is not None:
             url = make_query_url(url, {'offset' : offset, 'length' : length})
         result = requests.get(url, stream=True)
