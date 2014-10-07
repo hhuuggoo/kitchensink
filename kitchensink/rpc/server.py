@@ -50,7 +50,7 @@ def close():
 
 def run(gevent=False):
     app.debug = True
-    settings.server_manager.register(settings.host_name, settings.host_url)
+    settings.server_manager.register(settings.host_name, settings.host_url, settings.read_only)
     rpcblueprint.heartbeat_thread.start()
     atexit.register(close)
     if gevent:

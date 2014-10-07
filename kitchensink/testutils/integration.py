@@ -17,7 +17,7 @@ from ..api import setup_client, client, du, do, dp, Client
 from .. import settings
 
 pid_file = 'ks-test.pid'
-def setup_module():
+def setup_module(node3_read_only=False):
     global dir1
     global dir2
     global dir3
@@ -69,6 +69,8 @@ def setup_module():
            '--node-url', url3,
            '--num-workers', '1',
            '--redis-connection', redis_url]
+    if node3_read_only:
+        cmd.append('--read-only')
     p = ManagedProcess(cmd, 'node3', pid_file)
     wait_ks_start(url3)
     # hack - wait for workers to sleep. necessary if
