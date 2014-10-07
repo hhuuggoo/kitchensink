@@ -31,12 +31,17 @@ def parser():
     p.add_argument('--datadir',
                    help='data directory',
     )
+    p.add_argument('--read-only',
+                   help='if set, you cannot write data to this node',
+                   default=False,
+                   action='store_true')
     return p
 
 def run_args(args):
-    run(args.redis_connection, args.node_url, args.node_name, args.queue, args.datadir)
+    run(args.redis_connection, args.node_url, args.node_name,
+        args.queue, args.datadir, args.read_only)
 
-def run(redis_connection, node_url, node_name, queue, datadir):
+def run(redis_connection, node_url, node_name, queue, datadir, read_only):
     if node_name is None:
         node_name = node_url
     redis_connection_obj = parse_redis_connection(redis_connection)
@@ -46,7 +51,7 @@ def run(redis_connection, node_url, node_name, queue, datadir):
     server_manager = Servers(r)
     settings.setup_server(r, datadir, node_url, node_name,
                           Catalog(r, datadir, node_name),
-                          server_manager
+                          server_manager, _read_only=read_only
     )
     if queue is None:
         queue = ['default']

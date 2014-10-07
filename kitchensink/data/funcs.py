@@ -5,8 +5,11 @@ from .. import settings
 
 logger = logging.getLogger(__name__)
 
-def hosts():
-    return settings.server_manager.active_hosts()
+def hosts(to_write=False):
+    """if to_write is True, then only non-read-only hosts
+    will be returned
+    """
+    return settings.server_manager.active_hosts(to_write=to_write)
 
 def get_info_bulk(urls):
     """

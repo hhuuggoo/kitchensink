@@ -143,14 +143,14 @@ def test_remote_data_source_conversions():
     result = pickle.loads(result)
     assert result.shape == df1.shape
 
-def test_pipeline():
-    setup_client(integration.url1)
-    c = client()
-    df = pd.DataFrame({'a' : np.arange(100000)})
-    remote = do(df)
-    retval = remote.pipeline(prefix='pipeline_test')
-    data_info =  c.data_info([remote.data_url])
-    active_hosts, data_info = data_info
-    path_info, metadata = data_info[remote.data_url]
-    #copied to 3 hosts
-    assert len(path_info) == 3
+# def test_pipeline():
+#     setup_client(integration.url1)
+#     c = client()
+#     df = pd.DataFrame({'a' : np.arange(100000)})
+#     remote = do(df)
+#     retval = remote.pipeline(prefix='pipeline_test')
+#     data_info =  c.data_info([remote.data_url])
+#     active_hosts, data_info = data_info
+#     path_info, metadata = data_info[remote.data_url]
+#     #copied to 3 hosts
+#     assert len(path_info) == 3

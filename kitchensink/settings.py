@@ -13,13 +13,14 @@ redis_conn = None
 prefix = ""
 timeout = 10
 is_server = None
+read_only = False
 
 rpc_url = None
 data_rpc_url = None
 server_manager = None
 
 def setup_server(_redis_conn, _datadir, _host_url, _host_name,
-                 _catalog, _server_manager):
+                 _catalog, _server_manager, _read_only=False):
     if not _host_url.endswith("/"):
         _host_url += "/"
     global catalog
@@ -31,7 +32,8 @@ def setup_server(_redis_conn, _datadir, _host_url, _host_name,
     global data_rpc_url
     global is_server
     global server_manager
-
+    global read_only
+    read_only = _read_only
     is_server = True
     catalog = _catalog
     datadir = _datadir

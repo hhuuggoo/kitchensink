@@ -80,11 +80,17 @@ class RemoteData(object):
     def _put(self, f, data_type='object', fmt="cloudpickle"):
         logger.debug("posting %s to %s", self.data_url, self.rpc_url)
         f.seek(0)
-        if settings.catalog:
+        if settings.catalog and not settings.read_only:
             settings.catalog.write(f, self.data_url, is_new=True, data_type=data_type,
                                    fmt=self.fmt)
         else:
             c = self.client(self.rpc_url)
+            hosts = c.call('hosts', to_write=True, _async=False, _rpc_name='data')
+            if self.rpc_url in set(hosts.values()):
+                url = self.rpc_url
+            else:
+                url = random.choice(hosts.values())
+                c = self.client(url)
             return c._put_data(self.data_url, f, data_type=data_type, fmt=fmt)
 
     def _existing_file_path(self):
@@ -201,59 +207,40 @@ class RemoteData(object):
             self._put(f, data_type=data_type, fmt=fmt)
         finally:
             f.close()
+    # removing pipelining - slowing down development, and I'm not using it yet
+    # def pipeline(self, existing=True, size=None, url=None):
+    #     if size is None and existing is False:
+    #         raise Exception
+    #     c = self.client()
+    #     writeable_hosts = c.hosts(to_write=True)
+    #     if existing:
+    #         active_hosts, results = c.data_info([self.data_url])
+    #         location_info, _ = results
+    #         size = _['size']
+    #     else:
+    #         active_host = c.hosts()
+    #         location_info = {}
+    #     from ..utils.funcs import reverse_dict
+    #     current_host_name = reverse_dict(active_hosts)[self.rpc_url]
 
-    def pipeline(self, existing=False, url=None, prefix=""):
-        """pipeline this datasource across all nodes
-        existing - means this object already exists in the system
-        otherwise a new one will be saved and created
-        """
-        if existing:
-            return self.pipeline_existing()
-        if self.data_url and not existing:
-            raise KitchenSinkError, "Dataset is already created, cannot be modified"
-        if not self.data_url:
-            if url is None:
-                self.data_url = urljoin(prefix,
-                                        str(uuid.uuid4()))
-            else:
-                self.data_url = url
-        length, f = self._save_stream()
-        try:
-            client = self._pipeline_existing(starting_url=self.rpc_url, length=length)
-            self._put(f)
-            return client.br()
-        finally:
-            f.close()
-
-    def _pipeline_existing(self, starting_host=None, starting_url=None, length=None):
-        c = self.client()
-        active_hosts, results = c.data_info([self.data_url])
-        if starting_host is None:
-            #ugly...
-            from ..utils.funcs import reverse_dict
-            starting_host = reverse_dict(active_hosts)[starting_url]
-        location_info, data_info = results[self.data_url]
-        if length is None:
-            length = data_info['size']
-        hosts = set(active_hosts.keys())
-        hosts = [x for x in hosts if x not in location_info]
-        hosts = [x for x in hosts if x != starting_host]
-        hosts.append(starting_host)
-        print hosts
-        for idx in range(1, len(hosts)):
-            queue = c.queue('data', host=hosts[idx - 1])
-            c.bc('chunked_copy', self.data_url, length, hosts[idx],
-                 _queue_name=queue,
-            )
-        c.execute()
-        return c
-
-    def pipeline_existing(self):
-        c = self.client()
-        node, url = c.pick_host(self.data_url)
-        client = self._pipeline_existing(node)
-        client.execute()
-        return client.br()
+    #     #remove hosts that already have data
+    #     for k in writeable_hosts.keys():
+    #         if k in location_info:
+    #             del writeable_hosts[k]
+    #     # if we can write to the current host
+    #     if current_host_name in writeable_hosts:
+    #         target = current_host_name
+    #     else:
+    #         target = writeable_hosts[-1]
+    #         writable_hosts = writeable_hosts[:-1]
+    #     for idx in range(1, len(writeable_hosts)):
+    #         queue = c.queue('data', host=writeable_hosts[idx - 1])
+    #         c.bc('chunked_copy', url, size, writeable_hosts[idx],
+    #              _queue_name=queue)
+    #     queue = c.queue('data', host=writeable_hosts[-1])
+    #     c.bc('chunked_copy', url, size, target, _queue_name=queue)
+    #     if target not in location_info:
+    #         return c._put_data(self.data_url, f, data_type=data_type, fmt=fmt)
 
     def __repr__(self):
         if self.data_url:

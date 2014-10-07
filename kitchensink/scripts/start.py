@@ -61,7 +61,10 @@ def parser():
                    default=False,
                    action='store_true'
     )
-
+    p.add_argument('--read-only',
+                   help='if set, you cannot write data to this node',
+                   default=False,
+                   action='store_true')
     #mandatory
     p.add_argument('--datadir',
                    help='data directory',
@@ -78,11 +81,12 @@ def run_args(args):
         args.node_port,
         args.num_workers, args.no_redis, args.queue,
         args.module,
-        args.datadir
+        args.datadir,
+        args.read_only
     )
 
 def run(redis_connection, node_url, node_name, node_port,
-        num_workers, no_redis, queue, module, datadir):
+        num_workers, no_redis, queue, module, datadir, read_only):
     if not node_url.endswith("/"):
         node_url += "/"
     if node_name is None:
@@ -104,7 +108,10 @@ def run(redis_connection, node_url, node_name, node_port,
            '--redis-connection', redis_connection,
            '--datadir', datadir,
     ]
-    app = make_app(redis_connection_info, node_port, node_url, node_name, datadir)
+    if read_only:
+        cmd.append('--read-only')
+    app = make_app(redis_connection_info, node_port,
+                   node_url, node_name, datadir, read_only)
     app.debug_log_format = FORMAT
     for c in range(10):
         try:

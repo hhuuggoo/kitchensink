@@ -22,7 +22,7 @@ def get_queue(name):
             rpcblueprint.queues[name] = queue
     return rpcblueprint.queues[name]
 
-def make_app(redis_connection_obj, port, host_url, host_name, datadir):
+def make_app(redis_connection_obj, port, host_url, host_name, datadir, read_only):
     app.register_blueprint(rpcblueprint, url_prefix="/rpc")
     app.port = port
     if gevent:
@@ -34,7 +34,8 @@ def make_app(redis_connection_obj, port, host_url, host_name, datadir):
     server_manager = Servers(rpcblueprint.r)
     settings.setup_server(rpcblueprint.r, datadir, host_url, host_name,
                           Catalog(rpcblueprint.r, datadir, host_name),
-                          server_manager
+                          server_manager,
+                          _read_only=read_only
     )
     rpcblueprint.heartbeat_thread = HeartbeatThread()
     return app

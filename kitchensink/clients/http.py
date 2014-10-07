@@ -339,6 +339,9 @@ class Client(object):
             raise Exception(result.get('error'))
         return result
 
+    def hosts(self, to_write=False):
+        return self.call('hosts', to_write=to_write, _rpc_name='data', _async=False)
+
     def pick_host(self, data_url):
         active_hosts, results = self.call('get_info_bulk', [data_url],
                                           _rpc_name='data',

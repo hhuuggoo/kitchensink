@@ -117,6 +117,7 @@ def get_data(path):
         offset = int(offset)
         length = int(length)
         if local_path is None or not exists(local_path):
+            logger.info('data does not exist %s', settings.host_name)
             data = b""
         else:
             with open(local_path, "rb") as f:
