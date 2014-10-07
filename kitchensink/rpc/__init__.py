@@ -235,8 +235,7 @@ def _execute_msg(msg):
         m.update(msg)
         key = m.hexdigest()
         memoize_url = "memoize/%s" % key
-        hosts_info, data_info = settings.catalog.get_info(memoize_url)
-        if len(hosts_info) > 0:
+        if settings.catalog.url_exists(memoize_url):
             logger.debug("retrieving memoized")
             return du(memoize_url).obj()
 
