@@ -6,6 +6,7 @@ import signal
 import os
 import sys
 import traceback
+import cPickle
 
 from rq import Queue, Worker
 from rq.job import Job, UNEVALUATED, Status, NoSuchJobError, UnpickleError
@@ -13,6 +14,7 @@ import rq.job
 from rq.worker import StopRequested
 from rq.utils import utcnow
 from rq.compat import total_ordering, string_types, as_text
+rq.job.dumps = lambda x, protocol : cPickle.dumps(x, -1)
 
 from ..serialization import serializer, deserializer
 from ..utils import setup_loghandlers
