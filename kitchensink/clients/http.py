@@ -151,7 +151,6 @@ class Client(object):
         st = time.time()
         while True:
             to_query = list(set(to_query).difference(set(results.keys())))
-            print ("WAITING ON %s" % len(to_query))
             if time.time() - st > timeout:
                 break
             if len(to_query) == 0:
@@ -200,17 +199,27 @@ class Client(object):
     def bulk_results_local(self):
         return self.results
 
-    def bulk_results(self):
+    def bulk_results(self, profile=False):
+        st = time.time()
         if self.local:
             return self.bulk_results_local()
         try:
-            return self.bulk_async_result(self.jids)
+            retval = self.bulk_async_result(self.jids)
         except KeyboardInterrupt as e:
             self.bulk_cancel(self.jids)
+        ed = time.time()
+        if profile:
+            if isinstance(profile, basestring):
+                print ("%s took %s" % (profile, ed-st))
+            else:
+                print ("%s took %s" % ("profile", ed-st))
+            components = self.call('retrieve_profile',
+                                   self.jids, _rpc_name='admin',
+                                   _async=False)
+            print (components)
+        return retval
 
     br = bulk_results
-
-
     def rpc_message(self, func, *args, **kwargs):
         #TODO: check for serialized function
         #TODO: handle instance methods

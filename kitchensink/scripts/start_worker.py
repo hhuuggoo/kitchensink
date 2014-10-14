@@ -35,15 +35,20 @@ def parser():
                    help='if set, you cannot write data to this node',
                    default=False,
                    action='store_true')
+    p.add_argument('--module',
+                   help='(optional) module with rpc functions',
+    )
     return p
 
 def run_args(args):
     run(args.redis_connection, args.node_url, args.node_name,
-        args.queue, args.datadir, args.read_only)
+        args.queue, args.datadir, args.read_only, args.module)
 
-def run(redis_connection, node_url, node_name, queue, datadir, read_only):
+def run(redis_connection, node_url, node_name, queue, datadir, read_only, module):
     if node_name is None:
         node_name = node_url
+    if module:
+        mod = __import__(module)
     redis_connection_obj = parse_redis_connection(redis_connection)
     r = redis.StrictRedis(host=redis_connection_obj['host'],
                           port=redis_connection_obj['port'],
@@ -80,5 +85,5 @@ def main():
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
     logging.getLogger("requests.packages.urllib3.connectionpool").setLevel(logging.WARNING)
-    #logging.getLogger('rq.worker').setLevel(logging.WARNING)
+    logging.getLogger('rq.worker').setLevel(logging.WARNING)
     main()

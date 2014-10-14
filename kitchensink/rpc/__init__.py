@@ -5,6 +5,7 @@ import threading
 import logging
 import time
 import hashlib
+import datetime as dt
 
 from rq.job import Status
 from rq import Queue, Connection
@@ -111,7 +112,6 @@ class RPC(object):
                     continue
                 job = async_jobs.get(idx, None)
                 queue = queues.pop(0)
-                logger.info('enqueue call %s', queue)
                 self.task_queue.get_queue(queue).enqueue_job(job)
                 if not queues:
                     del async_queues[idx]
@@ -221,14 +221,11 @@ class OutputThread(threading.Thread):
 
 
 def _execute_msg(msg):
-    logger.debug("EXECUTING")
     st = time.time()
     msg_format, metadata, data = unpack_rpc_call(msg)
     ed = time.time()
-    logger.debug("UNPACKED %s", (ed - st))
     func = data['func']
     memoize_url = None
-
     ## some code in place for memoization decorator(experimental)
     if hasattr(func, "ks_memoize") and func.ks_memoize and settings.catalog:
         m = hashlib.md5()
@@ -273,11 +270,10 @@ def unpatch_loggers(patched):
         handler.stream = stream
 
 def execute_msg(msg, intermediate_results=False):
-
+    print('START')
     if not current_job_id() or not intermediate_results:
         logger.debug("**jobid %s", current_job_id())
         return _execute_msg(msg)
-    logger.debug("intermediate_results %s", intermediate_results)
     output = tempfile.NamedTemporaryFile(prefix="ks-").name
     output_thread = OutputThread()
     output_thread.filename = output

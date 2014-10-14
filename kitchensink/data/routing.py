@@ -29,6 +29,6 @@ def route(urls, hosts, infos, threshold):
             else:
                 to_copy[host] += size
     to_copy = to_copy.items()
-    to_copy.sort(key=lambda x : x[1])
+    to_copy.sort(key=lambda x : (x[1], x[0]))
     to_copy = [x for x in to_copy if x[1] < threshold]
     return to_copy

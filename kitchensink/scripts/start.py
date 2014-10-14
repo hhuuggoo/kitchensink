@@ -108,6 +108,8 @@ def run(redis_connection, node_url, node_name, node_port,
            '--redis-connection', redis_connection,
            '--datadir', datadir,
     ]
+    if module:
+        cmd.extend(('--module', module))
     if read_only:
         cmd.append('--read-only')
     app = make_app(redis_connection_info, node_port,
@@ -153,5 +155,5 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format=FORMAT)
     logging.getLogger("requests.packages.urllib3.connectionpool").setLevel(logging.WARNING)
 
-    #logging.getLogger('rq.worker').level = logging.WARNING
+    logging.getLogger('rq.worker').level = logging.WARNING
     main()
