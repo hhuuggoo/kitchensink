@@ -259,11 +259,11 @@ class RemoteData(object):
             c = Client(self.rpc_url)
             return c.async_result(c.call(self.__class__.__getitem__, self, arg))
 
-def du(url):
-    return RemoteData(data_url=url)
+def du(url, **kwargs):
+    return RemoteData(data_url=url, **kwargs)
 def dp(path):
     return RemoteData(local_path=path)
-def do(obj):
-    return RemoteData(obj=obj)
+def do(obj, **kwargs):
+    return RemoteData(obj=obj, **kwargs)
 def dr(raw):
     return RemoteData(raw=raw)
