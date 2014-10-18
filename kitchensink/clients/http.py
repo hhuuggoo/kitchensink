@@ -217,6 +217,11 @@ class Client(object):
                                    self.jids, _rpc_name='admin',
                                    _async=False)
             print (components)
+            components.pop('start_spread')
+            components.pop('end_spread')
+            overhead = (ed-st) - (components.sum() / len(self.jids))
+            print ('%s overhead %s' % (profile, overhead))
+
         return retval
 
     br = bulk_results
@@ -251,7 +256,7 @@ class Client(object):
                               self.data_threshold)
                 #strip off size information
                 queue_names = [self.queue(queue_name, host=x[0]) for x in hosts]
-                logger.debug("routing to %s", queue_names)
+                #logger.debug("routing to %s", queue_names)
             else:
                 queue_names = [queue_name]
         fmt = self.fmt

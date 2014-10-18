@@ -20,6 +20,7 @@ rq.job.dumps = dumps
 
 from ..serialization import serializer, deserializer
 from ..utils import setup_loghandlers
+
 import logging
 logger = logging.getLogger(__name__)
 
@@ -245,6 +246,7 @@ class KitchenSinkWorker(Worker):
         """Performs the actual work of a job.  Will/should only be called
         inside the work horse's process.
         """
+        from  ..admin import timethis, save_profile
         with self.connection._pipeline() as pipeline:
             self.heartbeat((job.timeout or 180) + 60, pipeline=pipeline)
             self.set_state('busy', pipeline=pipeline)
@@ -255,6 +257,7 @@ class KitchenSinkWorker(Worker):
         with self.connection._pipeline() as pipeline:
             try:
                 with self.death_penalty_class(job.timeout or self.queue_class.DEFAULT_TIMEOUT):
+                    save_profile('start', time.time(), job.id)
                     rv = job.perform()
                 # Pickle the result in the same try-except block since we need to
                 # use the same exc handling when pickling fails
@@ -263,9 +266,12 @@ class KitchenSinkWorker(Worker):
                 self.set_current_job_id(None, pipeline=pipeline)
                 result_ttl = job.get_ttl(self.default_result_ttl)
                 if result_ttl != 0:
-                    job.save(pipeline=pipeline)
+
+                    with timethis('result save', jid=job.id):
+                        job.save(pipeline=pipeline)
                 job.cleanup(result_ttl, pipeline=pipeline)
                 job.push_status(status=Status.FINISHED, pipeline=pipeline)
+                save_profile('end', time.time(), job.id)
                 pipeline.execute()
 
             except Exception:

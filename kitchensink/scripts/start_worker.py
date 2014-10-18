@@ -45,10 +45,6 @@ def run_args(args):
         args.queue, args.datadir, args.read_only, args.module)
 
 def run(redis_connection, node_url, node_name, queue, datadir, read_only, module):
-    if node_name is None:
-        node_name = node_url
-    if module:
-        mod = __import__(module)
     redis_connection_obj = parse_redis_connection(redis_connection)
     r = redis.StrictRedis(host=redis_connection_obj['host'],
                           port=redis_connection_obj['port'],
@@ -58,6 +54,10 @@ def run(redis_connection, node_url, node_name, queue, datadir, read_only, module
                           Catalog(r, datadir, node_name),
                           server_manager, _read_only=read_only
     )
+    if node_name is None:
+        node_name = node_url
+    if module:
+        mod = __import__(module)
     if queue is None:
         queue = ['default']
     with Connection(r):

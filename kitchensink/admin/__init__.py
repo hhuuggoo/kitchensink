@@ -20,6 +20,7 @@ def cancel_all():
 def retrieve_profile(jids):
     connection = settings.redis_conn
     all_messages = []
+
     for jid in jids:
         key = "rq:profile:%s" % jid
         msgs = connection.lrange(key, 0, -1)
@@ -30,28 +31,42 @@ def retrieve_profile(jids):
             msg = deserializer('cloudpickle')(msg)
             big_message.update(msg)
         all_messages.append(big_message)
+    data = pd.DataFrame(all_messages)
+    start_spread = data.pop('start')
+    end_spread = data.pop('end')
     if all_messages:
-        return pd.DataFrame(all_messages).sum()
+        result = data.sum()
+        result['start_spread'] = start_spread.max() - start_spread.min()
+        result['end_spread'] = end_spread.max() - end_spread.min()
+        return result
     else:
         return None
 
 #from dabaez
-def timethis(what):
+def save_profile(key, value, jid):
+    connection = settings.redis_conn
+    msg = {key : value}
+    msg = serializer('cloudpickle')(msg)
+    key = "rq:profile:%s" % jid
+    connection.lpush(key, msg)
+    connection.expire(key, 1800)
+
+
+def timethis(what, jid=None):
     @contextmanager
     def benchmark():
         start = time.time()
         yield
         end = time.time()
-        jid = current_job_id()
+        if benchmark.jid is None:
+            jid = current_job_id()
+        else:
+            jid = benchmark.jid
         if settings.is_server and jid:
-            connection = settings.redis_conn
-            msg = {what : end-start}
-            msg = serializer('cloudpickle')(msg)
-            key = "rq:profile:%s" % jid
-            connection.lpush(key, msg)
-            connection.expire(key, 1800)
+            save_profile(what, end-start, jid)
         else:
             print("%s : %0.3f seconds" % (what, end-start))
+    benchmark.jid = jid
     return benchmark()
 
 def make_rpc():
