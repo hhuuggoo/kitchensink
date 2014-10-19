@@ -252,7 +252,6 @@ class KitchenSinkWorker(Worker):
             self.set_state('busy', pipeline=pipeline)
             self.set_current_job_id(job.id, pipeline=pipeline)
             job.set_status(Status.STARTED, pipeline=pipeline)
-            job.push_status(Status.STARTED, pipeline=pipeline)
             pipeline.execute()
         with self.connection._pipeline() as pipeline:
             try:
