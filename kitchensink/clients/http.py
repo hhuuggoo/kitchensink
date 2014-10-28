@@ -159,7 +159,9 @@ class Client(object):
             result = requests.post(raw_url,
                                    data={'job_ids' : ",".join(to_query)},
             )
+            print ('RESULT', "%.3f" % time.time())
             metadata_data_pairs = unpack_results(result.content)
+            print ('UNPACKED', "%.3f" % time.time())
             for job_id, (metadata, data) in zip(to_query, metadata_data_pairs):
                 for msg in metadata.get('msgs', []):
                     if msg['type'] == 'status':
@@ -216,12 +218,17 @@ class Client(object):
             components = self.call('retrieve_profile',
                                    self.jids, _rpc_name='admin',
                                    _async=False)
+            last_finish = components.pop('last_finish')
+            total_runtimes = components.pop('total_runtimes')
             print (components)
             components.pop('start_spread')
             components.pop('end_spread')
             overhead = (ed-st) - (components.sum() / len(self.jids))
+            overhead2 = (ed-st) - total_runtimes / len(self.jids)
             print ('%s overhead %s' % (profile, overhead))
-
+            print ('%s overhead2 %s' % (profile, overhead2))
+            print ('%s result delay %s' % (profile, ed - last_finish))
+            print ('%s complete %s' % (profile, ed))
         return retval
 
     br = bulk_results

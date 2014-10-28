@@ -34,10 +34,14 @@ def retrieve_profile(jids):
     data = pd.DataFrame(all_messages)
     start_spread = data.pop('start')
     end_spread = data.pop('end')
+    runtimes = end_spread - start_spread
+    total_runtimes = runtimes.sum()
     if all_messages:
         result = data.sum()
         result['start_spread'] = start_spread.max() - start_spread.min()
         result['end_spread'] = end_spread.max() - end_spread.min()
+        result['total_runtimes'] = total_runtimes
+        result['last_finish'] = end_spread.max()
         return result
     else:
         return None

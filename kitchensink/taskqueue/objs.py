@@ -265,13 +265,12 @@ class KitchenSinkWorker(Worker):
                 self.set_current_job_id(None, pipeline=pipeline)
                 result_ttl = job.get_ttl(self.default_result_ttl)
                 if result_ttl != 0:
-
-                    with timethis('result save', jid=job.id):
-                        job.save(pipeline=pipeline)
+                    job.save(pipeline=pipeline)
                 job.cleanup(result_ttl, pipeline=pipeline)
                 job.push_status(status=Status.FINISHED, pipeline=pipeline)
+                with timethis('result save', jid=job.id):
+                    pipeline.execute()
                 save_profile('end', time.time(), job.id)
-                pipeline.execute()
 
             except Exception:
                 # Use the public setter here, to immediately update Redis
