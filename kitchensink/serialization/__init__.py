@@ -1,4 +1,5 @@
-from . import (json_serialization, dill_serialization,
+import time
+from . import (json_serialization,
                pickle_serialization, cloudpickle, raw)
 
 from .. import utils
@@ -11,9 +12,9 @@ def register_default_serialization():
     register_serialization('json',
                            json_serialization.serialize,
                            json_serialization.deserialize)
-    register_serialization('dill',
-                           dill_serialization.serialize,
-                           dill_serialization.deserialize)
+    # register_serialization('dill',
+    #                        dill_serialization.serialize,
+    #                        dill_serialization.deserialize)
     register_serialization('pickle',
                            pickle_serialization.serialize,
                            pickle_serialization.deserialize)
@@ -116,7 +117,7 @@ updated, so that the last dicts values takes precedence
 """
 
 def pack_rpc_call(metadata, *data, **kwargs):
-    fmt = kwargs.pop('fmt', 'dill')
+    fmt = kwargs.pop('fmt', 'cloudpickle')
     #always use json for rpc metadata
     fmts = ['json'] + [fmt for d in data]
     return pack_msg(metadata, *data, fmt=fmts)

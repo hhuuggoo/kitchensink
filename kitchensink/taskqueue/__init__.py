@@ -110,6 +110,8 @@ class TaskQueue(object):
 
         elif status == Status.FAILED:
             retval = job.exc_info
+            if retval is None:
+                retval = "job has no stack trace"
             job.delete()
             return metadata, retval
         else:

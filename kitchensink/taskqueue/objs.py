@@ -6,6 +6,7 @@ import signal
 import os
 import sys
 import traceback
+import cPickle
 
 from rq import Queue, Worker
 from rq.job import Job, UNEVALUATED, Status, NoSuchJobError, UnpickleError
@@ -13,10 +14,13 @@ import rq.job
 from rq.worker import StopRequested
 from rq.utils import utcnow
 from rq.compat import total_ordering, string_types, as_text
-import dill
+def dumps(x, protocol=-1):
+    return cPickle.dumps(x, protocol)
+rq.job.dumps = dumps
 
 from ..serialization import serializer, deserializer
 from ..utils import setup_loghandlers
+
 import logging
 logger = logging.getLogger(__name__)
 
@@ -242,16 +246,17 @@ class KitchenSinkWorker(Worker):
         """Performs the actual work of a job.  Will/should only be called
         inside the work horse's process.
         """
+        from  ..admin import timethis, save_profile
         with self.connection._pipeline() as pipeline:
             self.heartbeat((job.timeout or 180) + 60, pipeline=pipeline)
             self.set_state('busy', pipeline=pipeline)
             self.set_current_job_id(job.id, pipeline=pipeline)
             job.set_status(Status.STARTED, pipeline=pipeline)
-            job.push_status(Status.STARTED, pipeline=pipeline)
             pipeline.execute()
         with self.connection._pipeline() as pipeline:
             try:
                 with self.death_penalty_class(job.timeout or self.queue_class.DEFAULT_TIMEOUT):
+                    save_profile('start', time.time(), job.id)
                     rv = job.perform()
                 # Pickle the result in the same try-except block since we need to
                 # use the same exc handling when pickling fails
@@ -263,7 +268,9 @@ class KitchenSinkWorker(Worker):
                     job.save(pipeline=pipeline)
                 job.cleanup(result_ttl, pipeline=pipeline)
                 job.push_status(status=Status.FINISHED, pipeline=pipeline)
-                pipeline.execute()
+                with timethis('result save', jid=job.id):
+                    pipeline.execute()
+                save_profile('end', time.time(), job.id)
 
             except Exception:
                 # Use the public setter here, to immediately update Redis

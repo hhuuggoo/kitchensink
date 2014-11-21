@@ -8,7 +8,6 @@ from rq.job import Status
 
 from kitchensink.testutils.testrpc import make_rpc, dummy_add
 from kitchensink.serialization import (json_serialization,
-                                       dill_serialization,
                                        pickle_serialization,
                                        pack_rpc_call,
                                        unpack_result)
@@ -19,12 +18,12 @@ def test_rpc():
     rpc = make_rpc()
     args = (a,b)
     kwargs = {}
-    metadata = {'result_fmt' : 'dill',
+    metadata = {'result_fmt' : 'cloudpickle',
                 'async' : False,
                 'func_string' : 'dummy_add'}
     data = {'args' : args,
             'kwargs' : kwargs}
-    msg = pack_rpc_call(metadata, data, fmt='dill')
+    msg = pack_rpc_call(metadata, data, fmt='cloudpickle')
     result = rpc.call(msg)
     msg_format, [metadata, result] = unpack_result(result)
     status = metadata['status']
@@ -44,7 +43,7 @@ def test_rpc_json():
     data = {
             'args' : args,
             'kwargs' : kwargs}
-    msg = pack_rpc_call(metadata, data, fmt='dill')
+    msg = pack_rpc_call(metadata, data, fmt='cloudpickle')
     result = rpc.call(msg)
     msg_format, [metadata, result] = unpack_result(result)
     status = metadata['status']

@@ -13,7 +13,7 @@ from .app import app, rpcblueprint
 from . import views
 from ..taskqueue import TaskQueue
 from .. import settings
-from ..data import Catalog
+from ..data import Catalog, Servers
 
 def get_queue(name):
     if not name in rpcblueprint.queues:
@@ -22,7 +22,7 @@ def get_queue(name):
             rpcblueprint.queues[name] = queue
     return rpcblueprint.queues[name]
 
-def make_app(redis_connection_obj, port, host_url, datadir):
+def make_app(redis_connection_obj, port, host_url, host_name, datadir, read_only):
     app.register_blueprint(rpcblueprint, url_prefix="/rpc")
     app.port = port
     if gevent:
@@ -31,8 +31,12 @@ def make_app(redis_connection_obj, port, host_url, datadir):
                                        port=redis_connection_obj['port'],
                                        db=redis_connection_obj['db'])
     rpcblueprint.task_queue = TaskQueue(rpcblueprint.r)
-    settings.setup_server(rpcblueprint.r, datadir, host_url,
-                          Catalog(rpcblueprint.r, datadir, host_url))
+    server_manager = Servers(rpcblueprint.r)
+    settings.setup_server(rpcblueprint.r, datadir, host_url, host_name,
+                          Catalog(rpcblueprint.r, datadir, host_name),
+                          server_manager,
+                          _read_only=read_only
+    )
     rpcblueprint.heartbeat_thread = HeartbeatThread()
     return app
 
@@ -46,6 +50,7 @@ def close():
 
 def run(gevent=False):
     app.debug = True
+    settings.server_manager.register(settings.host_name, settings.host_url, settings.read_only)
     rpcblueprint.heartbeat_thread.start()
     atexit.register(close)
     if gevent:
@@ -59,20 +64,10 @@ def run(gevent=False):
 class HeartbeatThread(Thread):
     def run(self):
         self.kill = False
-        if settings.prefix:
-            self.host_key = settings.prefix + ":" + "hosts"
-            self.hostinfo_key = settings.prefix + ":" + "hostinfo:%s" %settings.host_url
-        else:
-            self.host_key = "hosts"
-            self.hostinfo_key = "hostinfo:%s" %settings.host_url
         def loop():
-            settings.redis_conn.sadd(self.host_key, self.hostinfo_key)
-            settings.redis_conn.setex(self.hostinfo_key,
-                                      settings.timeout,
-                                      settings.host_url)
+            settings.server_manager.active_loop(settings.host_name)
         def remove():
-            settings.redis_conn.srem(self.host_key, self.hostinfo_key)
-            settings.redis_conn.delete(self.hostinfo_key, settings.host_url)
+            settings.server_manager.remove(settings.host_name)
         loop()
         while True:
             if self.kill:

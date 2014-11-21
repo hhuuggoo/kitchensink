@@ -46,3 +46,13 @@ def workflow(c, func, data=[], force=False):
             logger.info("clearing prefix %s", prefix)
             c.reducetree(prefix)
         func()
+
+def reverse_dict(input_dict):
+    """reverses a dict k,v -> v,k
+    assuming mappings are one to one
+    """
+    result = {}
+    for k,v in input_dict.items():
+        assert v not in result
+        result[v] = k
+    return result

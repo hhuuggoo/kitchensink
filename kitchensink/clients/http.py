@@ -3,10 +3,10 @@ import time
 import random
 import datetime as dt
 import logging
+import urllib
 
 import six
 import requests
-import dill
 from rq.job import Status
 
 from ..serialization import (serializer, deserializer, pack_msg,
@@ -51,18 +51,29 @@ class Client(object):
                  queue_name="default",
                  fmt='cloudpickle'):
         # client settings
+        if url is None:
+            raise Exception('url cannot be None')
         self.url = url
         self.fmt = fmt
         self.rpc_name = rpc_name
         self.queue_name = queue_name
         self.data_threshold = 200000000 #200 megs
         self.local = False
-        self.prefix = ""
+        self.prefix = settings.prefix
 
         # client state, used in the bulk call pipeline
         self.calls = []
         self.jids = []
         self.results = []
+
+    def queue(self, name, host=None):
+        if host:
+            return "%s|%s" % (name, host)
+        else:
+            return name
+
+    def has_host(self, queue_name):
+        return len(queue_name.split("|")) == 2
 
     def clone(self):
         """constructs a client with the same settings as this one, but
@@ -104,12 +115,16 @@ class Client(object):
                                headers={'content-type' : 'application/octet-stream'})
         msg_format, messages = unpack_msg(result.content, override_fmt='raw')
         jids = []
+        errors = []
         for msg in messages:
             msg_format, [metadata, data] = unpack_result(msg)
             if metadata['status'] == Status.FAILED:
-                raise Exception, metadata['error']
+                errors.append(metadata.get('error', ''))
             else:
                 jids.append(metadata['job_id'])
+        if errors:
+            self.bulk_cancel(jids)
+            raise Exception(str(errors))
         return jids
 
     def execute(self):
@@ -136,7 +151,6 @@ class Client(object):
         st = time.time()
         while True:
             to_query = list(set(to_query).difference(set(results.keys())))
-            print ("WAITING ON %s" % len(to_query))
             if time.time() - st > timeout:
                 break
             if len(to_query) == 0:
@@ -185,17 +199,37 @@ class Client(object):
     def bulk_results_local(self):
         return self.results
 
-    def bulk_results(self):
+    def bulk_results(self, profile=False):
+        st = time.time()
         if self.local:
             return self.bulk_results_local()
         try:
-            return self.bulk_async_result(self.jids)
+            retval = self.bulk_async_result(self.jids)
         except KeyboardInterrupt as e:
             self.bulk_cancel(self.jids)
+        ed = time.time()
+        if profile:
+            if isinstance(profile, basestring):
+                print ("%s took %s" % (profile, ed-st))
+            else:
+                print ("%s took %s" % ("profile", ed-st))
+            components = self.call('retrieve_profile',
+                                   self.jids, _rpc_name='admin',
+                                   _async=False)
+            last_finish = components.pop('last_finish')
+            total_runtimes = components.pop('total_runtimes')
+            print (components)
+            components.pop('start_spread')
+            components.pop('end_spread')
+            unmeasured_overhead = (ed-st) - (components.sum() / len(self.jids))
+            runtime_overhead = (ed-st) - total_runtimes / len(self.jids)
+            print ('%s unmeasured_overhead %s' % (profile, unmeasured_overhead))
+            print ('%s runtime_overhead %s' % (profile, runtime_overhead))
+            print ('%s result delay %s' % (profile, ed - last_finish))
+            print ('%s complete %s' % (profile, ed))
+        return retval
 
     br = bulk_results
-
-
     def rpc_message(self, func, *args, **kwargs):
         #TODO: check for serialized function
         #TODO: handle instance methods
@@ -212,10 +246,10 @@ class Client(object):
         else:
             func = func
         #pass func in to data later, when we support that kind of stuff
-        if "_queue_name" in kwargs:
-            queue_names = [kwargs.pop("_queue_name")]
-        elif no_route_data:
-            queue_names = [self.queue_name]
+        queue_names = None
+        queue_name = kwargs.pop('_queue_name', self.queue_name)
+        if (queue_name and self.has_host(queue_name)) or no_route_data:
+            queue_names = [queue_name]
         else:
             #fixme circular import
             from ..data.routing  import inspect, route
@@ -223,13 +257,13 @@ class Client(object):
             if data_urls:
                 if active_hosts is None and data_info is None:
                     active_hosts, data_info = self.data_info(data_urls)
-                queue_names = route(data_urls, active_hosts, data_info,
-                                    self.data_threshold)
+                hosts = route(data_urls, active_hosts, data_info,
+                              self.data_threshold)
                 #strip off size information
-                queue_names = [x[0] for x in queue_names]
-                logger.debug("routing to %s", queue_names)
+                queue_names = [self.queue(queue_name, host=x[0]) for x in hosts]
+                #logger.debug("routing to %s", queue_names)
             else:
-                queue_names = [self.queue_name]
+                queue_names = [queue_name]
         fmt = self.fmt
         auth_string = ""
 
@@ -253,6 +287,17 @@ class Client(object):
     functions for executing one function, or retrieving one result,
     one at a time
     """
+    def call_single(self, func, *args, **kwargs):
+        self.bc(func, *args, **kwargs)
+        self.execute()
+        return self.br()[0]
+    cs = call_single
+
+    def map(self, func, arg_list):
+        for x in arg_list:
+            self.bc(func, x)
+        self.execute()
+        return self.br()
 
     def call(self, func, *args, **kwargs):
         async = kwargs.get('_async', True)
@@ -307,7 +352,7 @@ class Client(object):
         return active_hosts, results
 
     def _get_data(self, path, offset=None, length=None):
-        url = self.url + "rpc/data/%s/" % path
+        url = self.url + "rpc/data/%s/" % urllib.quote(path)
         if offset is not None and length is not None:
             url = make_query_url(url, {'offset' : offset, 'length' : length})
         result = requests.get(url, stream=True)
@@ -324,14 +369,19 @@ class Client(object):
             raise Exception(result.get('error'))
         return result
 
+    def hosts(self, to_write=False):
+        return self.call('hosts', to_write=to_write, _rpc_name='data', _async=False)
+
     def pick_host(self, data_url):
-        host_info, data_info = self.call('get_info', data_url,
-                                         _rpc_name='data',
-                                         _async=False)
-        if settings.host_url and settings.host_url in host_info:
-            return host_info[settings.host_url]
-        host = host_info.keys()[0]
-        return host
+        active_hosts, results = self.call('get_info_bulk', [data_url],
+                                          _rpc_name='data',
+                                          _async=False)
+        location_info, data_info = results[data_url]
+        if settings.host_name and settings.host_name in location_info:
+            return (settings.host_name, active_hosts[settings.host_name])
+        #FIXME: TEST THIS
+        host = random.choice(list(location_info))
+        return (host, active_hosts[host])
 
     def path_search(self, pattern):
         return self.async_result(self.call('search_path', pattern,
@@ -347,9 +397,10 @@ class Client(object):
         number = kwargs.pop('number', 0)
         remove_host = kwargs.pop('remove_host', None)
         active_hosts, infos = self.data_info(urls)
+        active_host_names = set(active_hosts.keys())
         for url in urls:
             host_info, data_info = infos[url]
-            hosts = set(active_hosts).intersection(set(host_info.keys()))
+            hosts = set(active_host_names).intersection(host_info)
             if not len(hosts) > number:
                 print("%s hosts have data for %s.  Not reducing" % (len(hosts), url))
                 continue
@@ -360,7 +411,8 @@ class Client(object):
             assert len(to_keep) == number
             to_delete = set(hosts).difference(to_keep)
             for host in to_delete:
-                c.bulk_call('delete', url, _queue_name=host,
+                queue = self.queue('data', host=host)
+                c.bulk_call('delete', url, _queue_name=queue,
                             _rpc_name='data')
         c.execute()
         return c.bulk_results()
@@ -375,23 +427,26 @@ class Client(object):
         urls = self.path_search(pattern)
         info = self.data_info(urls)
         active_hosts, data_info = info
-
-        candidates = [x for x in active_hosts if x != from_host]
-        for url, (host_info, metadata) in data_info.items():
+        active_host_names = set(active_hosts.keys())
+        candidates = [x for x in active_host_names if x != from_host]
+        for url, (location_info, data_info) in data_info.items():
             if to_host is None:
                 target = random.choice(candidates)
             else:
                 target = to_host
-            if from_host in host_info and len(host_info) == 1:
-                c.bc('chunked_copy', url, metadata.get('size'), from_host, _queue_name=target)
+            if from_host in location_info and len(location_info) == 1:
+                queue = self.queue('data', host=from_host)
+                c.bc('chunked_copy', url, metadata.get('size'),
+                     from_host, _queue_name=queue)
         c.execute()
         c.br()
-
         info = self.data_info(urls)
         active_hosts, data_info = info
-        for url, (host_info, metadata) in data_info.items():
-            if from_host in host_info and len(host_info) >= 2:
-                self.bc('delete', url, _queue_name=from_host, _rpc_name='data')
+        active_host_names = set(active_hosts.keys())
+        for url, (location_info, data_info) in data_info.items():
+            if from_host in location_info and len(location_info) >= 2:
+                queue_name = self.queue('data', host=from_host)
+                self.bc('delete', url, _queue_name=queue_name, _rpc_name='data')
         self.execute()
         self.br()
 
@@ -403,7 +458,8 @@ class Client(object):
         hosts = set(active_hosts).intersection(set(info.keys()))
         obj = du(url)
         for h in hosts:
-            self.bc(md5sum, obj, _queue_name=h)
+            queue = self.queue('data', host=h)
+            self.bc(md5sum, obj, _queue_name=queue)
         self.execute()
         results = self.br()
         return zip(hosts, results)

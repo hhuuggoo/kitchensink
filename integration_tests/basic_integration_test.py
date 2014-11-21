@@ -14,6 +14,9 @@ from kitchensink.testutils.integration import (dummy_func,
                                                remote_file,
 )
 import kitchensink.testutils.integration as integration
+import logging
+requests_log = logging.getLogger("requests")
+requests_log.setLevel(logging.WARNING)
 
 setup_module = integration.setup_module
 teardown_module = integration.teardown_module
@@ -121,13 +124,12 @@ def test_remote_data_sources():
 def test_remote_data_source_conversions():
     ### remote data sources can be accessed as an object, local path, or raw data
     ### test conversions of all
-
+    setup_client(integration.url1)
+    c = client()
     df1 = pd.DataFrame({'a' : np.arange(100)})
     shape = df1.shape
     obj = do(df1)
     obj.save()
-    setup_client(integration.url1)
-    c = client()
     c.bc(remote_obj_func, du(obj.data_url))
     c.execute()
     result = c.br()[0]
@@ -141,14 +143,14 @@ def test_remote_data_source_conversions():
     result = pickle.loads(result)
     assert result.shape == df1.shape
 
-def test_pipeline():
-    setup_client(integration.url1)
-    c = client()
-    df = pd.DataFrame({'a' : np.arange(100000)})
-    remote = do(df)
-    retval = remote.pipeline(prefix='pipeline_test')
-    data_info =  c.data_info([remote.data_url])
-    active_hosts, data_info = data_info
-    path_info, metadata = data_info[remote.data_url]
-    #copied to 3 hosts
-    assert len(path_info) == 3
+# def test_pipeline():
+#     setup_client(integration.url1)
+#     c = client()
+#     df = pd.DataFrame({'a' : np.arange(100000)})
+#     remote = do(df)
+#     retval = remote.pipeline(prefix='pipeline_test')
+#     data_info =  c.data_info([remote.data_url])
+#     active_hosts, data_info = data_info
+#     path_info, metadata = data_info[remote.data_url]
+#     #copied to 3 hosts
+#     assert len(path_info) == 3

@@ -21,14 +21,14 @@ def route(urls, hosts, infos, threshold):
         to_copy[host] = 0
     #M*N algo.. should be ok cause M and N are small
     for url in urls:
-        host_info, data_info = infos[url]
+        location_info, data_info = infos[url]
         size = data_info['size']
         for host in hosts:
-            if host_info.get(host):
+            if host in location_info:
                 continue
             else:
                 to_copy[host] += size
     to_copy = to_copy.items()
-    to_copy.sort(key=lambda x : x[1])
+    to_copy.sort(key=lambda x : (x[1], x[0]))
     to_copy = [x for x in to_copy if x[1] < threshold]
     return to_copy

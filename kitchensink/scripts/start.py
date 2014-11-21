@@ -41,12 +41,14 @@ def parser():
                    help="redis connection information, tcp://localhost:6379?db=9",
                    default="tcp://localhost:6379?db=9")
     p.add_argument('--node-url', help='url of node', default='http://localhost:6323/')
+    p.add_argument('--node-name', help='name of node', default=None)
     p.add_argument('--no-redis',
                    help="do not start redis",
                    default=False,
                    action="store_true")
     p.add_argument('--node-port',
                    help="port for the main worker node of the RPC Server",
+                   type=int,
                    default=None)
     p.add_argument('--num-workers',
                    help="number of workers",
@@ -60,7 +62,10 @@ def parser():
                    default=False,
                    action='store_true'
     )
-
+    p.add_argument('--read-only',
+                   help='if set, you cannot write data to this node',
+                   default=False,
+                   action='store_true')
     #mandatory
     p.add_argument('--datadir',
                    help='data directory',
@@ -73,16 +78,20 @@ def parser():
 
 def run_args(args):
     run(args.redis_connection, args.node_url,
+        args.node_name,
         args.node_port,
         args.num_workers, args.no_redis, args.queue,
         args.module,
-        args.datadir
+        args.datadir,
+        args.read_only
     )
 
-def run(redis_connection, node_url, node_port,
-        num_workers, no_redis, queue, module, datadir):
+def run(redis_connection, node_url, node_name, node_port,
+        num_workers, no_redis, queue, module, datadir, read_only):
     if not node_url.endswith("/"):
         node_url += "/"
+    if node_name is None:
+        node_name = node_url
     datadir = abspath(datadir)
     register_shutdown()
     redis_connection_info = parse_redis_connection(redis_connection)
@@ -96,10 +105,16 @@ def run(redis_connection, node_url, node_port,
         time.sleep(1)
     cmd = [sys.executable, '-m', 'kitchensink.scripts.start_worker',
            '--node-url', node_url,
+           '--node-name', node_name,
            '--redis-connection', redis_connection,
            '--datadir', datadir,
     ]
-    app = make_app(redis_connection_info, node_port, node_url, datadir)
+    if module:
+        cmd.extend(('--module', module))
+    if read_only:
+        cmd.append('--read-only')
+    app = make_app(redis_connection_info, node_port,
+                   node_url, node_name, datadir, read_only)
     app.debug_log_format = FORMAT
     for c in range(10):
         try:
@@ -108,10 +123,11 @@ def run(redis_connection, node_url, node_port,
         except ConnectionError:
             time.sleep(1.0)
     if queue is None:
-        queue = ['default']
+        queue = ['default', 'data']
     for q in queue:
         cmd.extend(['--queue', q])
     for c in range(num_workers):
+        print ('**cmd', cmd)
         ManagedProcess(cmd, 'worker-%s' % c, pid_file)
     data_rpc = make_data_rpc()
     register_rpc(data_rpc, 'data')
@@ -140,5 +156,5 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format=FORMAT)
     logging.getLogger("requests.packages.urllib3.connectionpool").setLevel(logging.WARNING)
 
-    #logging.getLogger('rq.worker').level = logging.WARNING
+    logging.getLogger('rq.worker').level = logging.WARNING
     main()

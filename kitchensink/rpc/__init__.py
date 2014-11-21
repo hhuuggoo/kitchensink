@@ -5,24 +5,23 @@ import threading
 import logging
 import time
 import hashlib
+import datetime as dt
 
 from rq.job import Status
 from rq import Queue, Connection
 from six import string_types
 
-from ..serialization import (json_serialization,
-                             dill_serialization,
-                             pickle_serialization,
-                             pack_result,
+from ..serialization import (pack_result,
                              unpack_rpc_metadata,
                              unpack_msg_format,
                              unpack_rpc_call,
-                             append_rpc_data
+                             append_rpc_data,
+                             serializer,
+                             deserializer
 )
 
 from ..taskqueue.objs import current_job_id, KitchenSinkJob
 from ..errors import UnauthorizedAccess, UnknownFunction, WrappedError, KitchenSinkError
-from ..settings import serializer, deserializer
 from .. import settings
 from ..data import du, do
 
@@ -119,6 +118,9 @@ class RPC(object):
         for k,v in async_jobs.iteritems():
             metadata = async_job_metadata[k]
             metadata['status'] = v.get_status()
+            if metadata['status'] == Status.FAILED:
+                v.refresh()
+                metadata['error'] = v.exc_info
             results[k] = pack_result(metadata, None, fmt=metadata['result_fmt'])
         results = [results[x] for x in range(len(msgs))]
         return results
@@ -219,22 +221,18 @@ class OutputThread(threading.Thread):
 
 
 def _execute_msg(msg):
-    logger.debug("EXECUTING")
     st = time.time()
     msg_format, metadata, data = unpack_rpc_call(msg)
     ed = time.time()
-    logger.debug("UNPACKED %s", (ed - st))
     func = data['func']
     memoize_url = None
-
     ## some code in place for memoization decorator(experimental)
     if hasattr(func, "ks_memoize") and func.ks_memoize and settings.catalog:
         m = hashlib.md5()
         m.update(msg)
         key = m.hexdigest()
         memoize_url = "memoize/%s" % key
-        hosts_info, data_info = settings.catalog.get_info(memoize_url)
-        if len(hosts_info) > 0:
+        if settings.catalog.url_exists(memoize_url):
             logger.debug("retrieving memoized")
             return du(memoize_url).obj()
 
@@ -272,11 +270,10 @@ def unpatch_loggers(patched):
         handler.stream = stream
 
 def execute_msg(msg, intermediate_results=False):
-
+    print('START')
     if not current_job_id() or not intermediate_results:
         logger.debug("**jobid %s", current_job_id())
         return _execute_msg(msg)
-    logger.debug("intermediate_results %s", intermediate_results)
     output = tempfile.NamedTemporaryFile(prefix="ks-").name
     output_thread = OutputThread()
     output_thread.filename = output
