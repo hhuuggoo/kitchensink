@@ -5,6 +5,8 @@ separator = '""""'
 chunk_size = 2000000
 
 #toset
+profile = True
+profile_ttl = 1800
 catalog = None
 datadir = None
 host_url = None

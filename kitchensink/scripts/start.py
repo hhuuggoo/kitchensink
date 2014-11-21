@@ -48,6 +48,7 @@ def parser():
                    action="store_true")
     p.add_argument('--node-port',
                    help="port for the main worker node of the RPC Server",
+                   type=int,
                    default=None)
     p.add_argument('--num-workers',
                    help="number of workers",

@@ -53,7 +53,7 @@ def save_profile(key, value, jid):
     msg = serializer('cloudpickle')(msg)
     key = "rq:profile:%s" % jid
     connection.lpush(key, msg)
-    connection.expire(key, 1800)
+    connection.expire(key, settings.profile_ttl)
 
 
 def timethis(what, jid=None):
@@ -66,7 +66,7 @@ def timethis(what, jid=None):
             jid = current_job_id()
         else:
             jid = benchmark.jid
-        if settings.is_server and jid:
+        if settings.is_server and settings.profile and jid:
             save_profile(what, end-start, jid)
         else:
             print("%s : %0.3f seconds" % (what, end-start))

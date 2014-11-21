@@ -159,9 +159,7 @@ class Client(object):
             result = requests.post(raw_url,
                                    data={'job_ids' : ",".join(to_query)},
             )
-            print ('RESULT', "%.3f" % time.time())
             metadata_data_pairs = unpack_results(result.content)
-            print ('UNPACKED', "%.3f" % time.time())
             for job_id, (metadata, data) in zip(to_query, metadata_data_pairs):
                 for msg in metadata.get('msgs', []):
                     if msg['type'] == 'status':
@@ -223,10 +221,10 @@ class Client(object):
             print (components)
             components.pop('start_spread')
             components.pop('end_spread')
-            overhead = (ed-st) - (components.sum() / len(self.jids))
-            overhead2 = (ed-st) - total_runtimes / len(self.jids)
-            print ('%s overhead %s' % (profile, overhead))
-            print ('%s overhead2 %s' % (profile, overhead2))
+            unmeasured_overhead = (ed-st) - (components.sum() / len(self.jids))
+            runtime_overhead = (ed-st) - total_runtimes / len(self.jids)
+            print ('%s unmeasured_overhead %s' % (profile, unmeasured_overhead))
+            print ('%s runtime_overhead %s' % (profile, runtime_overhead))
             print ('%s result delay %s' % (profile, ed - last_finish))
             print ('%s complete %s' % (profile, ed))
         return retval
@@ -289,6 +287,17 @@ class Client(object):
     functions for executing one function, or retrieving one result,
     one at a time
     """
+    def call_single(self, func, *args, **kwargs):
+        self.bc(func, *args, **kwargs)
+        self.execute()
+        return self.br()[0]
+    cs = call_single
+
+    def map(self, func, arg_list):
+        for x in arg_list:
+            self.bc(func, x)
+        self.execute()
+        return self.br()
 
     def call(self, func, *args, **kwargs):
         async = kwargs.get('_async', True)
