@@ -13,8 +13,6 @@ build/
 develop-eggs/
 dist/
 eggs/
-lib/
-lib64/
 parts/
 sdist/
 var/
@@ -56,3 +54,4 @@ docs/_build/
 *#*
 
 *.pid
+node_modules/
