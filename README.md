@@ -209,7 +209,7 @@ c.bulk_results()
   -  we query the server for metadata about each data url (hosts which have them, which hosts are active, file size)
   -  For each function, we determine how much data would need to be copied if it was executed on each host
   -  For each function, a priority list is constructed in order of which hosts involve the least amount of data copying
-  -  There is a threshold, (200mb, but it's configureable) for how much data we will not copy.  Hosts which exceed this amount, will not be used for this function, and are cut out of the priority list
+  -  There is a threshold, (200mb, but it's configurable) for how much data we will not copy.  Hosts which exceed this amount, will not be used for this function, and are cut out of the priority list
   -  All functions, args, kwargs, and host priority lists(in the form of queue names) are sent to the server
 - When the server receives this message, it goes through each function, and enqueues it on the first priority
 - host for each function.  Then we go through the list of funciton calls again, and enqueue it on the second priority host, and then the third priority host, etc..  The important thing is that all functions are enqueued on their first priority hosts before the second priority hosts start being enqueued
